@@ -1,0 +1,156 @@
+# BlockchainCore Configuration
+# This file contains all configuration parameters for the project
+
+# AWS Configuration
+aws:
+  region: us-east-1
+  environment: dev # dev, staging, prod
+
+# Project Configuration
+project:
+  name: blockchain-core
+  version: 1.0.0
+  description: "Real-Time Blockchain Data Analytics on AWS"
+
+# Data Sources
+data_sources:
+  binance:
+    websocket_url: "wss://stream.binance.com:9443/ws"
+    symbols:
+      - BTCUSDT
+      - ETHUSDT
+      - ADAUSDT
+    trade_stream: "@trade"
+    kline_stream: "@kline_1m"
+
+# SQS Configuration
+sqs:
+  queue_name: "blockchain-core-trade-data"
+  visibility_timeout: 300 # seconds
+  message_retention: 1209600 # 14 days
+  receive_wait_time: 20 # seconds for long polling
+  batch_size: 10
+  max_batching_window: 5 # seconds
+
+# S3 Configuration
+s3:
+  bucket_name: "blockchain-core-raw-data"
+  partitioning:
+    enabled: true
+    format: "year/month/day/hour"
+  lifecycle:
+    enabled: true
+    retention_days: 365
+    transition_days: 30
+
+# DynamoDB Configuration
+dynamodb:
+  table_name: "blockchain-core-ohlcv-data"
+  billing_mode: "PAY_PER_REQUEST"
+  attributes:
+    hash_key: "symbol"
+    range_key: "timestamp"
+  ttl:
+    enabled: false
+    attribute_name: "expires_at"
+
+# Lambda Configuration
+lambda:
+  processor:
+    function_name: "blockchain-core-processor"
+    runtime: "python3.9"
+    timeout: 300
+    memory_size: 512
+    handler: "processor.lambda_handler"
+  anomaly_detector:
+    function_name: "blockchain-core-anomaly-detector"
+    runtime: "python3.9"
+    timeout: 60
+    memory_size: 256
+    handler: "detector.lambda_handler"
+
+# Anomaly Detection Configuration
+anomaly_detection:
+  price_threshold: 5.0 # percentage
+  volume_threshold: 3.0 # multiplier
+  sma_threshold: 2.0 # percentage
+  analysis_window: 60 # minutes
+  detection_interval: 60 # seconds
+
+# SNS Configuration
+sns:
+  topic_name: "blockchain-core-alerts"
+  protocols:
+    - email
+    - sms
+  alert_types:
+    - price_movement
+    - volume_spike
+    - sma_divergence
+
+# EventBridge Configuration
+eventbridge:
+  rule_name: "blockchain-core-anomaly-detection"
+  schedule: "rate(1 minute)"
+  description: "Trigger anomaly detection every minute"
+
+# Monitoring Configuration
+monitoring:
+  cloudwatch:
+    log_retention_days: 14
+    metrics_enabled: true
+  alerts:
+    enabled: true
+    channels:
+      - email
+      - slack
+
+# Data Processing Configuration
+data_processing:
+  ohlcv:
+    interval_minutes: 1
+    calculate_sma: true
+    sma_periods: [10, 20, 50]
+  aggregation:
+    enabled: true
+    intervals: [1, 5, 15, 60] # minutes
+
+# Security Configuration
+security:
+  encryption:
+    s3: true
+    dynamodb: true
+    sqs: true
+  iam:
+    least_privilege: true
+    role_name: "blockchain-core-lambda-role"
+
+# Cost Optimization
+cost_optimization:
+  s3_lifecycle: true
+  dynamodb_ondemand: true
+  lambda_optimization: true
+  cloudwatch_retention: true
+
+# Development Configuration
+development:
+  localstack:
+    enabled: false
+    endpoint_url: "http://localhost:4566"
+  testing:
+    mock_aws: true
+    test_data: true
+  logging:
+    level: "INFO"
+    format: "json"
+
+# CI/CD Configuration
+ci_cd:
+  github_actions:
+    enabled: true
+    branches:
+      - main
+      - develop
+  deployment:
+    auto_approve: false
+    rollback_enabled: true

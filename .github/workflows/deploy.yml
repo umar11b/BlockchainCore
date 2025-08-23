@@ -1,0 +1,192 @@
+name: Deploy BlockchainCore
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  AWS_REGION: us-east-1
+  PYTHON_VERSION: "3.9"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run linting
+        run: |
+          black --check src/
+          isort --check-only src/
+          flake8 src/
+
+      - name: Run type checking
+        run: |
+          mypy src/
+
+      - name: Run tests
+        run: |
+          pytest tests/ -v --cov=src --cov-report=xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+
+  build-lambda:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Build processor Lambda package
+        run: |
+          mkdir -p src/lambda/processor/build
+          cp src/lambda/processor/processor.py src/lambda/processor/build/
+          pip install -r requirements.txt -t src/lambda/processor/build/
+          cd src/lambda/processor/build
+          zip -r ../processor.zip .
+          cd ../../../..
+
+      - name: Build anomaly detector Lambda package
+        run: |
+          mkdir -p src/lambda/anomaly/build
+          cp src/lambda/anomaly/detector.py src/lambda/anomaly/build/
+          pip install -r requirements.txt -t src/lambda/anomaly/build/
+          cd src/lambda/anomaly/build
+          zip -r ../anomaly.zip .
+          cd ../../../..
+
+      - name: Upload Lambda artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: lambda-packages
+          path: |
+            src/lambda/processor/processor.zip
+            src/lambda/anomaly/anomaly.zip
+
+  deploy-infrastructure:
+    needs: build-lambda
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Download Lambda artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: lambda-packages
+          path: src/lambda/
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: "1.0"
+
+      - name: Terraform Init
+        run: |
+          cd terraform
+          terraform init
+
+      - name: Terraform Plan
+        run: |
+          cd terraform
+          terraform plan -out=tfplan
+        env:
+          TF_VAR_environment: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+
+      - name: Terraform Apply
+        run: |
+          cd terraform
+          terraform apply -auto-approve tfplan
+        env:
+          TF_VAR_environment: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+
+  deploy-lambda:
+    needs: deploy-infrastructure
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Download Lambda artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: lambda-packages
+          path: src/lambda/
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update Lambda functions
+        run: |
+          aws lambda update-function-code \
+            --function-name blockchain-core-processor \
+            --zip-file fileb://src/lambda/processor/processor.zip
+
+          aws lambda update-function-code \
+            --function-name blockchain-core-anomaly-detector \
+            --zip-file fileb://src/lambda/anomaly/anomaly.zip
+
+  notify:
+    needs: [deploy-infrastructure, deploy-lambda]
+    runs-on: ubuntu-latest
+    if: always() && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Notify deployment status
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          channel: "#deployments"
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        if: always()

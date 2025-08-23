@@ -1,0 +1,216 @@
+"""
+Unit tests for the data processor Lambda function
+"""
+
+import json
+import pytest
+from unittest.mock import Mock, patch, MagicMock
+from datetime import datetime
+
+# Import the processor module
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src', 'lambda', 'processor'))
+
+from processor import lambda_handler, OHLCVCalculator, store_raw_data_in_s3, store_ohlcv_in_dynamodb
+
+class TestOHLCVCalculator:
+    """Test OHLCV calculator functionality"""
+    
+    def test_initialization(self):
+        """Test calculator initialization"""
+        calculator = OHLCVCalculator("BTCUSDT")
+        assert calculator.symbol == "BTCUSDT"
+        assert calculator.interval_minutes == 1
+        assert calculator.current_interval is None
+        assert calculator.ohlcv_data['open'] is None
+    
+    def test_get_interval_key(self):
+        """Test interval key generation"""
+        calculator = OHLCVCalculator("BTCUSDT")
+        timestamp_ms = int(datetime(2023, 1, 1, 12, 30, 45).timestamp() * 1000)
+        interval_key = calculator.get_interval_key(timestamp_ms)
+        assert interval_key == "2023-01-01T12:30:00Z"
+    
+    def test_process_trade_new_interval(self):
+        """Test processing trade in new interval"""
+        calculator = OHLCVCalculator("BTCUSDT")
+        
+        # Mock trade data
+        trade_data = {
+            's': 'BTCUSDT',
+            'p': '50000.00',
+            'q': '0.1',
+            'E': int(datetime(2023, 1, 1, 12, 30, 30).timestamp() * 1000)
+        }
+        
+        result = calculator.process_trade(trade_data)
+        assert result is None  # No complete interval yet
+        assert calculator.ohlcv_data['open'] == 50000.00
+        assert calculator.ohlcv_data['high'] == 50000.00
+        assert calculator.ohlcv_data['low'] == 50000.00
+        assert calculator.ohlcv_data['close'] == 50000.00
+        assert calculator.ohlcv_data['volume'] == 0.1
+    
+    def test_process_trade_complete_interval(self):
+        """Test processing trade that completes an interval"""
+        calculator = OHLCVCalculator("BTCUSDT")
+        
+        # First trade in interval
+        trade1 = {
+            's': 'BTCUSDT',
+            'p': '50000.00',
+            'q': '0.1',
+            'E': int(datetime(2023, 1, 1, 12, 30, 30).timestamp() * 1000)
+        }
+        calculator.process_trade(trade1)
+        
+        # Second trade in new interval
+        trade2 = {
+            's': 'BTCUSDT',
+            'p': '51000.00',
+            'q': '0.2',
+            'E': int(datetime(2023, 1, 1, 12, 31, 30).timestamp() * 1000)
+        }
+        result = calculator.process_trade(trade2)
+        
+        # Should return completed OHLCV data
+        assert result is not None
+        assert result['symbol'] == 'BTCUSDT'
+        assert result['open'] == 50000.00
+        assert result['high'] == 50000.00
+        assert result['low'] == 50000.00
+        assert result['close'] == 50000.00
+        assert result['volume'] == 0.1
+    
+    def test_get_ohlcv_data(self):
+        """Test getting OHLCV data"""
+        calculator = OHLCVCalculator("BTCUSDT")
+        
+        # No data yet
+        result = calculator.get_ohlcv_data()
+        assert result is None
+        
+        # Add some data
+        trade_data = {
+            's': 'BTCUSDT',
+            'p': '50000.00',
+            'q': '0.1',
+            'E': int(datetime(2023, 1, 1, 12, 30, 30).timestamp() * 1000)
+        }
+        calculator.process_trade(trade_data)
+        
+        result = calculator.get_ohlcv_data()
+        assert result is not None
+        assert result['symbol'] == 'BTCUSDT'
+        assert result['open'] == 50000.00
+
+class TestDataStorage:
+    """Test data storage functions"""
+    
+    @patch('processor.s3_client')
+    def test_store_raw_data_in_s3(self, mock_s3_client):
+        """Test storing raw data in S3"""
+        trade_data = {
+            's': 'BTCUSDT',
+            'p': '50000.00',
+            'q': '0.1',
+            'E': int(datetime(2023, 1, 1, 12, 30, 30).timestamp() * 1000)
+        }
+        timestamp = datetime(2023, 1, 1, 12, 30, 30)
+        
+        store_raw_data_in_s3(trade_data, timestamp)
+        
+        mock_s3_client.put_object.assert_called_once()
+        call_args = mock_s3_client.put_object.call_args
+        assert call_args[1]['Bucket'] == 'test-bucket'
+        assert 'raw-data/2023/01/01/12/trades_20230101_1230.json' in call_args[1]['Key']
+    
+    @patch('processor.table')
+    def test_store_ohlcv_in_dynamodb(self, mock_table):
+        """Test storing OHLCV data in DynamoDB"""
+        ohlcv_data = {
+            'symbol': 'BTCUSDT',
+            'timestamp': '2023-01-01T12:30:00Z',
+            'open': 50000.00,
+            'high': 51000.00,
+            'low': 49000.00,
+            'close': 50500.00,
+            'volume': 1.5,
+            'trade_count': 10
+        }
+        
+        store_ohlcv_in_dynamodb(ohlcv_data)
+        
+        mock_table.put_item.assert_called_once()
+        call_args = mock_table.put_item.call_args
+        item = call_args[1]['Item']
+        assert item['symbol'] == 'BTCUSDT'
+        assert item['open'] == 50000.00
+        assert item['volume'] == 1.5
+
+class TestLambdaHandler:
+    """Test Lambda handler function"""
+    
+    @patch('processor.store_raw_data_in_s3')
+    @patch('processor.store_ohlcv_in_dynamodb')
+    def test_lambda_handler_success(self, mock_store_ohlcv, mock_store_raw):
+        """Test successful Lambda handler execution"""
+        # Mock SQS event
+        event = {
+            'Records': [
+                {
+                    'body': json.dumps({
+                        's': 'BTCUSDT',
+                        'p': '50000.00',
+                        'q': '0.1',
+                        'E': int(datetime(2023, 1, 1, 12, 30, 30).timestamp() * 1000)
+                    })
+                }
+            ]
+        }
+        
+        # Mock context
+        context = Mock()
+        
+        # Call handler
+        result = lambda_handler(event, context)
+        
+        # Verify result
+        assert result['statusCode'] == 200
+        assert 'Processed 1 messages' in result['body']
+        
+        # Verify function calls
+        mock_store_raw.assert_called_once()
+    
+    @patch('processor.store_raw_data_in_s3')
+    def test_lambda_handler_error(self, mock_store_raw):
+        """Test Lambda handler with error"""
+        # Mock SQS event with invalid data
+        event = {
+            'Records': [
+                {
+                    'body': 'invalid json'
+                }
+            ]
+        }
+        
+        # Mock context
+        context = Mock()
+        
+        # Call handler and expect exception
+        with pytest.raises(Exception):
+            lambda_handler(event, context)
+    
+    def test_lambda_handler_empty_records(self):
+        """Test Lambda handler with empty records"""
+        event = {'Records': []}
+        context = Mock()
+        
+        result = lambda_handler(event, context)
+        
+        assert result['statusCode'] == 200
+        assert 'Processed 0 messages' in result['body']
+
+if __name__ == '__main__':
+    pytest.main([__file__])
