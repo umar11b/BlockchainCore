@@ -2,6 +2,8 @@
 
 A comprehensive real-time data pipeline for ingesting, processing, and analyzing live cryptocurrency trade data using AWS services.
 
+NOTE: Git commit history is gone since main branch was changed
+
 ## Architecture Overview
 
 ![Architecture Diagram](architecture-overview.jpeg)
