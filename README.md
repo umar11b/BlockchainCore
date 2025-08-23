@@ -1,6 +1,6 @@
 # BlockchainCore: Real-Time Blockchain Data Analytics on AWS
 
-A comprehensive real-time data pipeline for ingesting, processing, and analyzing live cryptocurrency trade data using AWS services. Updated.
+A comprehensive real-time data pipeline for ingesting, processing, and analyzing live cryptocurrency trade data using AWS services.
 
 ## Architecture Overview
 
