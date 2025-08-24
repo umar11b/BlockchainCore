@@ -17,7 +17,7 @@ NOTE: Git commit history is gone since main branch was changed
 - 🚨 **Monitoring**: EventBridge triggers anomaly detection → SNS alerts
 - 📈 **Observability**: CloudWatch collects logs and metrics from all services
 
-## 🗺️ Project Roadmap
+## 📊 Project Status
 
 | Component                      | Status         | Notes                                             |
 | ------------------------------ | -------------- | ------------------------------------------------- |
@@ -31,6 +31,42 @@ NOTE: Git commit history is gone since main branch was changed
 | **Multi-Symbol Support**       | 📋 Planned     | Add ETH, ADA, and other trading pairs             |
 | **Advanced Analytics**         | 📋 Planned     | ML-based anomaly detection                        |
 | **Mobile Alerts**              | 📋 Planned     | Push notifications for anomalies                  |
+
+## 🗺️ Project Roadmap (Future Plans)
+
+### Multi-Cloud Architecture
+
+| Cloud Platform    | Components                              | Status     | Description                                         |
+| ----------------- | --------------------------------------- | ---------- | --------------------------------------------------- |
+| **Azure**         | Event Hubs → Functions → Blob → Synapse | 📋 Planned | Azure-native data pipeline with real-time analytics |
+| **Homelab (k3s)** | NATS/Redpanda + MinIO + Grafana         | 📋 Planned | Self-hosted streaming and storage with monitoring   |
+
+### Azure Implementation Plan
+
+| Component      | Technology         | Purpose                    | Integration                            |
+| -------------- | ------------------ | -------------------------- | -------------------------------------- |
+| **Event Hubs** | Azure Event Hubs   | Real-time data ingestion   | Replace SQS for Azure pipeline         |
+| **Functions**  | Azure Functions    | Serverless processing      | Replace Lambda for data transformation |
+| **Storage**    | Azure Blob Storage | Data lake storage          | Replace S3 for raw data storage        |
+| **Analytics**  | Azure Synapse      | Data warehouse & analytics | Replace Athena for advanced queries    |
+| **Monitoring** | Azure Monitor      | Observability              | Replace CloudWatch for metrics         |
+
+### Homelab (k3s) Implementation Plan
+
+| Component         | Technology    | Purpose                 | Integration                   |
+| ----------------- | ------------- | ----------------------- | ----------------------------- |
+| **Streaming**     | NATS/Redpanda | Message streaming       | Alternative to SQS/Event Hubs |
+| **Storage**       | MinIO         | S3-compatible storage   | Self-hosted object storage    |
+| **Monitoring**    | Grafana       | Visualization & alerts  | Real-time dashboards          |
+| **Orchestration** | k3s           | Container orchestration | Kubernetes-based deployment   |
+
+### Cross-Cloud Benefits
+
+- **Resilience**: Multi-cloud redundancy for high availability
+- **Cost Optimization**: Leverage best pricing across providers
+- **Performance**: Geographic distribution for lower latency
+- **Learning**: Hands-on experience with multiple cloud platforms
+- **Control**: Self-hosted components for data sovereignty
 
 ## Technology Choice: SQS + Lambda vs Alternatives
 
