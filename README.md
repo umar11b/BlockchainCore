@@ -8,7 +8,14 @@ NOTE: Git commit history is gone since main branch was changed
 
 ![Architecture Diagram](BlockchainCore.jpeg)
 
-_Architecture diagram showing the complete data flow from Binance WebSocket to AWS services including SQS, Lambda functions, S3, DynamoDB, and monitoring components._
+**Architecture Flow:**
+
+- 🔧 **Infrastructure**: Terraform provisions all AWS resources
+- 📡 **Ingestion**: Binance WebSocket → Python Producer → SQS Queue
+- ⚡ **Processing**: Lambda processes messages → stores in S3 + DynamoDB
+- 📊 **Analytics**: Glue crawls S3 → Athena queries historical data
+- 🚨 **Monitoring**: EventBridge triggers anomaly detection → SNS alerts
+- 📈 **Observability**: CloudWatch collects logs and metrics from all services
 
 ## 🗺️ Project Roadmap
 
