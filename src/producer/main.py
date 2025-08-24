@@ -11,7 +11,7 @@ import os
 import sys
 import threading
 from datetime import datetime
-from typing import Dict, Any
+from typing import Any, Dict
 
 import boto3
 import websockets

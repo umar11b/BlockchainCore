@@ -7,8 +7,8 @@ import json
 import logging
 import os
 from datetime import datetime
-from typing import Dict, Any
 from decimal import Decimal
+from typing import Any, Dict
 
 import boto3
 from botocore.exceptions import ClientError

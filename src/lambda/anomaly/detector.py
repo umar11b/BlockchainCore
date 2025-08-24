@@ -7,8 +7,8 @@ import json
 import logging
 import os
 from datetime import datetime, timedelta
-from typing import Dict, List, Any, Optional
 from statistics import mean
+from typing import Any, Dict, List, Optional
 
 import boto3
 from botocore.exceptions import ClientError
