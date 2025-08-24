@@ -6,7 +6,7 @@ NOTE: Git commit history is gone since main branch was changed
 
 ## Architecture Overview
 
-![Architecture Diagram](architecture-overview.jpeg)
+![Architecture Diagram](BlockchainCore.jpeg)
 
 _Architecture diagram showing the complete data flow from Binance WebSocket to AWS services including SQS, Lambda functions, S3, DynamoDB, and monitoring components._
 
