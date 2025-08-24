@@ -62,7 +62,10 @@ class SQSHelper(AWSHelper):
             raise
 
     def receive_messages(
-        self, queue_url: str, max_messages: int = 10, wait_time_seconds: int = 20
+        self,
+        queue_url: str,
+        max_messages: int = 10,
+        wait_time_seconds: int = 20,
     ) -> List[Dict[str, Any]]:
         """Receive messages from SQS queue"""
         try:
@@ -77,12 +80,15 @@ class SQSHelper(AWSHelper):
             logger.error(f"Error receiving messages from SQS: {e}")
             raise
 
-    def delete_message(self, queue_url: str, receipt_handle: str) -> Dict[str, Any]:
+    def delete_message(
+        self, queue_url: str, receipt_handle: str
+    ) -> Dict[str, Any]:
         """Delete a message from SQS queue"""
         try:
             client = self.get_client("sqs")
             response = client.delete_message(
-                QueueUrl=queue_url, ReceiptHandle=receipt_handle
+                QueueUrl=queue_url,
+                ReceiptHandle=receipt_handle,
             )
             logger.debug(f"Message deleted from SQS: {receipt_handle}")
             return response
@@ -107,13 +113,20 @@ class S3Helper(AWSHelper):
     """Helper for S3 operations"""
 
     def put_object(
-        self, bucket: str, key: str, data: str, content_type: str = "application/json"
+        self,
+        bucket: str,
+        key: str,
+        data: str,
+        content_type: str = "application/json",
     ) -> Dict[str, Any]:
         """Put an object to S3"""
         try:
             client = self.get_client("s3")
             response = client.put_object(
-                Bucket=bucket, Key=key, Body=data, ContentType=content_type
+                Bucket=bucket,
+                Key=key,
+                Body=data,
+                ContentType=content_type,
             )
             logger.debug(f"Object uploaded to S3: {bucket}/{key}")
             return response
@@ -157,7 +170,9 @@ class DynamoDBHelper(AWSHelper):
         """Put an item to DynamoDB"""
         try:
             response = self.table.put_item(Item=item)
-            logger.debug(f"Item put to DynamoDB: {item.get('symbol', 'unknown')}")
+            logger.debug(
+                f"Item put to DynamoDB: {item.get('symbol', 'unknown')}"
+            )
             return response
         except ClientError as e:
             logger.error(f"Error putting item to DynamoDB: {e}")
@@ -196,7 +211,9 @@ class DynamoDBHelper(AWSHelper):
             raise
 
     def scan(
-        self, filter_expression: str = None, expression_values: Dict[str, Any] = None
+        self,
+        filter_expression: str = None,
+        expression_values: Dict[str, Any] = None,
     ) -> List[Dict[str, Any]]:
         """Scan items from DynamoDB"""
         try:

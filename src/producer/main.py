@@ -19,7 +19,8 @@ from botocore.exceptions import ClientError
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,8 @@ class BinanceWebSocketProducer:
         self.sqs_client = boto3.client("sqs")
         self.queue_url = os.getenv("SQS_QUEUE_URL", "")
         self.websocket_url = os.getenv(
-            "BINANCE_WEBSOCKET_URL", "wss://stream.binance.com:9443/ws/btcusdt@trade"
+            "BINANCE_WEBSOCKET_URL",
+            "wss://stream.binance.com:9443/ws/btcusdt@trade",
         )
         self.symbol = os.getenv("TRADING_SYMBOL", "BTCUSDT")
         self.running = False
@@ -48,11 +50,15 @@ class BinanceWebSocketProducer:
     async def connect_websocket(self):
         """Connect to Binance WebSocket"""
         try:
-            uri = f"wss://stream.binance.com:9443/ws/{self.symbol.lower()}@trade"
+            uri = (
+                f"wss://stream.binance.com:9443/ws/{self.symbol.lower()}@trade"
+            )
             logger.info(f"Connecting to Binance WebSocket: {uri}")
 
             # Simple connection without context manager
-            websocket = await websockets.connect(uri, ping_interval=20, ping_timeout=20)
+            websocket = await websockets.connect(
+                uri, ping_interval=20, ping_timeout=20
+            )
             logger.info("Connected to Binance WebSocket")
             self.running = True
 

@@ -56,8 +56,10 @@ class OHLCVCalculator:
         return interval_start.strftime("%Y-%m-%dT%H:%M:00Z")
 
     def process_trade(self, trade_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Process a single trade and return OHLCV data if interval is complete"""
-        timestamp_ms = trade_data.get("E", int(datetime.now().timestamp() * 1000))
+        """Process a single trade and return OHLCV data if complete"""
+        timestamp_ms = trade_data.get(
+            "E", int(datetime.now().timestamp() * 1000)
+        )
         price = float(trade_data.get("p", 0))
         quantity = float(trade_data.get("q", 0))
 
@@ -135,7 +137,10 @@ def store_raw_data_in_s3(trade_data: Dict[str, Any], timestamp: datetime):
 
         # Upload to S3
         s3_client.put_object(
-            Bucket=S3_BUCKET, Key=s3_key, Body=data_json, ContentType="application/json"
+            Bucket=S3_BUCKET,
+            Key=s3_key,
+            Body=data_json,
+            ContentType="application/json",
         )
 
         logger.debug(f"Stored raw data in S3: {s3_key}")
@@ -165,7 +170,8 @@ def store_ohlcv_in_dynamodb(ohlcv_data: Dict[str, Any]):
         table.put_item(Item=item)
 
         logger.info(
-            f"Stored OHLCV data for {ohlcv_data['symbol']} at {ohlcv_data['timestamp']}"
+            f"Stored OHLCV data for {ohlcv_data['symbol']} "
+            f"at {ohlcv_data['timestamp']}"
         )
 
     except ClientError as e:

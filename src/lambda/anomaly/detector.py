@@ -84,7 +84,9 @@ class AnomalyDetector:
         # Calculate price change percentage
         current_price = current["close"]
         previous_price = previous["close"]
-        price_change_pct = ((current_price - previous_price) / previous_price) * 100
+        price_change_pct = (
+            (current_price - previous_price) / previous_price
+        ) * 100
 
         # Check if price change exceeds threshold
         if abs(price_change_pct) > self.price_threshold:
@@ -132,7 +134,9 @@ class AnomalyDetector:
                 "threshold": self.volume_threshold,
                 "timestamp": ohlcv_data[0]["timestamp"],
                 "severity": (
-                    "high" if volume_ratio > self.volume_threshold * 2 else "medium"
+                    "high"
+                    if volume_ratio > self.volume_threshold * 2
+                    else "medium"
                 ),
             }
 
@@ -180,7 +184,9 @@ class AnomalyDetector:
                 "threshold": self.sma_threshold,
                 "timestamp": current["timestamp"],
                 "severity": (
-                    "high" if abs(divergence_pct) > self.sma_threshold * 2 else "medium"
+                    "high"
+                    if abs(divergence_pct) > self.sma_threshold * 2
+                    else "medium"
                 ),
             }
 
@@ -260,7 +266,8 @@ Time: {anomaly['timestamp']}
         response = sns_client.publish(
             TopicArn=SNS_TOPIC_ARN,
             Subject=(
-                f"BlockchainCore Alert: {anomaly['type'].replace('_', ' ').title()}"
+                f"BlockchainCore Alert: "
+                f"{anomaly['type'].replace('_', ' ').title()}"
             ),
             Message=message.strip(),
         )
@@ -285,7 +292,9 @@ def lambda_handler(event, context):
             ProjectionExpression="symbol", Select="SPECIFIC_ATTRIBUTES"
         )
 
-        symbols = list(set([item["symbol"] for item in response.get("Items", [])]))
+        symbols = list(
+            set([item["symbol"] for item in response.get("Items", [])])
+        )
         logger.info(f"Found {len(symbols)} symbols to analyze")
 
         # Detect anomalies for each symbol
@@ -297,7 +306,9 @@ def lambda_handler(event, context):
             for anomaly in anomalies:
                 send_sns_alert(anomaly)
 
-        logger.info(f"Detection complete. Found {len(all_anomalies)} anomalies")
+        logger.info(
+            f"Detection complete. Found {len(all_anomalies)} anomalies"
+        )
 
         return {
             "statusCode": 200,
