@@ -4,6 +4,40 @@ A comprehensive real-time data pipeline for ingesting, processing, and analyzing
 
 NOTE: Git commit history is gone since main branch was changed
 
+## 📋 Table of Contents
+
+### 🚀 Getting Started
+
+- [Architecture Overview](#architecture-overview)
+- [Project Status](#-project-status)
+- [Project Roadmap](#️-project-roadmap-future-plans)
+- [Features](#features)
+- [Prerequisites](#prerequisites)
+- [Quick Start](#quick-start)
+
+### ⚙️ Configuration & Management
+
+- [Configuration](#configuration)
+- [Monitoring](#monitoring)
+- [Technology Choices](#technology-choice-sqs--lambda-vs-alternatives)
+
+### 🛠️ Development & Operations
+
+- [Development](#development)
+- [Security](#security)
+- [Cost Optimization](#cost-optimization)
+- [Troubleshooting](docs/troubleshooting.md)
+
+### 📚 Documentation & Support
+
+- [Contributing](#contributing)
+- [License](#license)
+- [Support](#support)
+
+---
+
+[↑ Back to Top](#blockchaincore-real-time-blockchain-data-analytics-on-aws)
+
 ## Architecture Overview
 
 ![Architecture Diagram](BlockchainCore.jpeg)
@@ -68,6 +102,8 @@ NOTE: Git commit history is gone since main branch was changed
 - **Learning**: Hands-on experience with multiple cloud platforms
 - **Control**: Self-hosted components for data sovereignty
 
+[↑ Back to Top](#blockchaincore-real-time-blockchain-data-analytics-on-aws)
+
 ## Technology Choice: SQS + Lambda vs Alternatives
 
 | Technology               | Monthly Cost (Baseline)    | Best For                                             | Trade-offs                             | Why We Chose SQS                          |
@@ -83,6 +119,8 @@ NOTE: Git commit history is gone since main branch was changed
 - Sub-second latency is sufficient for our needs
 - Scales linearly with usage
 - Simple operations and maintenance
+
+[↑ Back to Top](#blockchaincore-real-time-blockchain-data-analytics-on-aws)
 
 ## Features
 
@@ -104,6 +142,8 @@ NOTE: Git commit history is gone since main branch was changed
 - Python 3.9+
 - Docker (for local development)
 - GitHub repository with Actions enabled
+
+[↑ Back to Top](#blockchaincore-real-time-blockchain-data-analytics-on-aws)
 
 ## Quick Start
 
@@ -229,6 +269,8 @@ If you prefer manual control:
 - SMA divergence threshold: 2%
 - Analysis window: 1 minute
 
+[↑ Back to Top](#blockchaincore-real-time-blockchain-data-analytics-on-aws)
+
 ## Monitoring
 
 - **CloudWatch Metrics**: SQS queue depth, Lambda execution times, error rates
@@ -272,6 +314,8 @@ isort src/
 - KMS encryption for sensitive data
 - CloudTrail logging for audit trails
 
+[↑ Back to Top](#blockchaincore-real-time-blockchain-data-analytics-on-aws)
+
 ## Cost Optimization
 
 - S3 lifecycle policies for data retention
@@ -291,6 +335,8 @@ Common issues include:
 - Lambda function processing errors
 - Script execution problems
 
+[↑ Back to Top](#blockchaincore-real-time-blockchain-data-analytics-on-aws)
+
 ## Contributing
 
 1. Fork the repository
@@ -303,6 +349,8 @@ Common issues include:
 
 MIT License - see LICENSE file for details.
 
+[↑ Back to Top](#blockchaincore-real-time-blockchain-data-analytics-on-aws)
+
 ## Support
 
 For issues and questions:
@@ -310,3 +358,5 @@ For issues and questions:
 - Create a GitHub issue
 - Check the [Troubleshooting Guide](docs/troubleshooting.md)
 - Review CloudWatch logs for detailed error information
+
+[↑ Back to Top](#blockchaincore-real-time-blockchain-data-analytics-on-aws)
