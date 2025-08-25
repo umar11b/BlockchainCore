@@ -43,6 +43,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "raw_data" {
     id     = "data_retention"
     status = "Enabled"
 
+    filter {
+      prefix = ""
+    }
+
     expiration {
       days = var.data_retention_days
     }
