@@ -162,38 +162,62 @@ jobs:
       - name: Clean up orphaned resources
         run: |
           echo "🧹 Cleaning up any orphaned resources..."
-          # Clean up DynamoDB tables
-          aws dynamodb list-tables --query 'TableNames[?contains(@, `blockchain-core`)]' --output text | while read -r table; do
-            if [ -n "$table" ]; then
-              echo "Deleting orphaned DynamoDB table: $table"
-              aws dynamodb delete-table --table-name "$table" 2>/dev/null || true
-            fi
-          done
-          # Clean up IAM roles
-          aws iam list-roles --query 'Roles[?contains(RoleName, `blockchain-core`)].RoleName' --output text | while read -r role; do
-            if [ -n "$role" ]; then
-              echo "Cleaning up orphaned IAM role: $role"
-              aws iam list-attached-role-policies --role-name "$role" --query 'AttachedPolicies[].PolicyArn' --output text | while read -r policy; do
-                if [ -n "$policy" ]; then
-                  aws iam detach-role-policy --role-name "$role" --policy-arn "$policy" 2>/dev/null || true
-                fi
-              done
-              aws iam list-role-policies --role-name "$role" --query 'PolicyNames[]' --output text | while read -r policy; do
-                if [ -n "$policy" ]; then
-                  aws iam delete-role-policy --role-name "$role" --policy-name "$policy" 2>/dev/null || true
-                fi
-              done
-              aws iam delete-role --role-name "$role" 2>/dev/null || true
-            fi
-          done
           
-          # Clean up Lambda functions
-          aws lambda list-functions --query 'Functions[?contains(FunctionName, `blockchain-core`)].FunctionName' --output text | while read -r function; do
-            if [ -n "$function" ]; then
-              echo "Cleaning up orphaned Lambda function: $function"
-              aws lambda delete-function --function-name "$function" 2>/dev/null || true
-            fi
-          done
+          # Clean up Lambda functions FIRST (most important)
+          echo "🔍 Checking for existing Lambda functions..."
+          LAMBDA_FUNCTIONS=$(aws lambda list-functions --query 'Functions[?contains(FunctionName, `blockchain-core`)].FunctionName' --output text)
+          if [ -n "$LAMBDA_FUNCTIONS" ]; then
+            echo "Found Lambda functions: $LAMBDA_FUNCTIONS"
+            for function in $LAMBDA_FUNCTIONS; do
+              echo "Deleting Lambda function: $function"
+              aws lambda delete-function --function-name "$function"
+              echo "✅ Deleted Lambda function: $function"
+            done
+          else
+            echo "No Lambda functions found to clean up"
+          fi
+          
+          # Clean up DynamoDB tables
+          echo "🔍 Checking for existing DynamoDB tables..."
+          DYNAMODB_TABLES=$(aws dynamodb list-tables --query 'TableNames[?contains(@, `blockchain-core`)]' --output text)
+          if [ -n "$DYNAMODB_TABLES" ]; then
+            echo "Found DynamoDB tables: $DYNAMODB_TABLES"
+            for table in $DYNAMODB_TABLES; do
+              echo "Deleting DynamoDB table: $table"
+              aws dynamodb delete-table --table-name "$table"
+              echo "✅ Deleted DynamoDB table: $table"
+            done
+          else
+            echo "No DynamoDB tables found to clean up"
+          fi
+          
+          # Clean up IAM roles
+          echo "🔍 Checking for existing IAM roles..."
+          IAM_ROLES=$(aws iam list-roles --query 'Roles[?contains(RoleName, `blockchain-core`)].RoleName' --output text)
+          if [ -n "$IAM_ROLES" ]; then
+            echo "Found IAM roles: $IAM_ROLES"
+            for role in $IAM_ROLES; do
+              echo "Cleaning up IAM role: $role"
+              # Detach attached policies
+              ATTACHED_POLICIES=$(aws iam list-attached-role-policies --role-name "$role" --query 'AttachedPolicies[].PolicyArn' --output text)
+              for policy in $ATTACHED_POLICIES; do
+                echo "Detaching policy: $policy from role: $role"
+                aws iam detach-role-policy --role-name "$role" --policy-arn "$policy"
+              done
+              # Delete inline policies
+              INLINE_POLICIES=$(aws iam list-role-policies --role-name "$role" --query 'PolicyNames[]' --output text)
+              for policy in $INLINE_POLICIES; do
+                echo "Deleting inline policy: $policy from role: $role"
+                aws iam delete-role-policy --role-name "$role" --policy-name "$policy"
+              done
+              # Delete the role
+              aws iam delete-role --role-name "$role"
+              echo "✅ Deleted IAM role: $role"
+            done
+          else
+            echo "No IAM roles found to clean up"
+          fi
+          
           echo "✅ Orphaned resources cleanup completed"
 
       - name: Setup Terraform
