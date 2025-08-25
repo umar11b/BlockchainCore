@@ -188,7 +188,7 @@ class AnomalyDetector:
 
     def detect_anomalies(self, symbol: str) -> List[Dict[str, Any]]:
         """Detect all types of anomalies for a symbol"""
-        anomalies = []
+        anomalies: List[Dict[str, Any]] = []
 
         # Get recent OHLCV data
         ohlcv_data = self.get_recent_ohlcv_data(symbol)

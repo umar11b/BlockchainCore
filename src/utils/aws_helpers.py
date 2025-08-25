@@ -18,7 +18,7 @@ class AWSHelper:
 
     def __init__(self, region_name: str = "us-east-1"):
         self.region_name = region_name
-        self._clients = {}
+        self._clients: Dict[str, Any] = {}
 
     def get_client(self, service_name: str):
         """Get or create AWS client"""
@@ -50,7 +50,10 @@ class SQSHelper(AWSHelper):
         """Send a message to SQS queue"""
         try:
             client = self.get_client("sqs")
-            kwargs = {"QueueUrl": queue_url, "MessageBody": json.dumps(data)}
+            kwargs: Dict[str, Any] = {
+                "QueueUrl": queue_url,
+                "MessageBody": json.dumps(data),
+            }
             if delay_seconds > 0:
                 kwargs["DelaySeconds"] = delay_seconds
 
@@ -213,7 +216,7 @@ class DynamoDBHelper(AWSHelper):
     ) -> List[Dict[str, Any]]:
         """Scan items from DynamoDB"""
         try:
-            kwargs = {}
+            kwargs: Dict[str, Any] = {}
             if filter_expression:
                 kwargs["FilterExpression"] = filter_expression
             if expression_values:

@@ -8,7 +8,7 @@ import logging
 import os
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import boto3
 from botocore.exceptions import ClientError
@@ -36,8 +36,8 @@ class OHLCVCalculator:
     def __init__(self, symbol: str, interval_minutes: int = 1):
         self.symbol = symbol
         self.interval_minutes = interval_minutes
-        self.current_interval = None
-        self.ohlcv_data = {
+        self.current_interval: Optional[str] = None
+        self.ohlcv_data: Dict[str, Any] = {
             "open": None,
             "high": None,
             "low": None,
@@ -55,7 +55,7 @@ class OHLCVCalculator:
         )
         return interval_start.strftime("%Y-%m-%dT%H:%M:00Z")
 
-    def process_trade(self, trade_data: Dict[str, Any]) -> Dict[str, Any]:
+    def process_trade(self, trade_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Process a single trade and return OHLCV data if complete"""
         timestamp_ms = trade_data.get("E", int(datetime.now().timestamp() * 1000))
         price = float(trade_data.get("p", 0))
@@ -79,15 +79,21 @@ class OHLCVCalculator:
         if self.ohlcv_data["open"] is None:
             self.ohlcv_data["open"] = price
 
-        self.ohlcv_data["high"] = max(self.ohlcv_data["high"] or price, price)
-        self.ohlcv_data["low"] = min(self.ohlcv_data["low"] or price, price)
+        self.ohlcv_data["high"] = max(
+            self.ohlcv_data["high"] if self.ohlcv_data["high"] is not None else price,
+            price,
+        )
+        self.ohlcv_data["low"] = min(
+            self.ohlcv_data["low"] if self.ohlcv_data["low"] is not None else price,
+            price,
+        )
         self.ohlcv_data["close"] = price
         self.ohlcv_data["volume"] += quantity
         self.ohlcv_data["trade_count"] += 1
 
         return None  # No complete interval yet
 
-    def get_ohlcv_data(self) -> Dict[str, Any]:
+    def get_ohlcv_data(self) -> Optional[Dict[str, Any]]:
         """Get current OHLCV data"""
         if self.ohlcv_data["open"] is None:
             return None
