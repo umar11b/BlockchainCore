@@ -73,6 +73,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Clear previous artifacts
+        run: |
+          echo "🧹 Clearing any previous build artifacts..."
+          rm -rf src/lambda/processor/build src/lambda/processor/processor.zip
+          rm -rf src/lambda/anomaly/build src/lambda/anomaly/anomaly.zip
+          rm -rf .github/workflows/artifacts
+
       - name: Build processor Lambda package
         run: |
           # Clean up any existing build artifacts
@@ -92,6 +99,13 @@ jobs:
           cd src/lambda/anomaly/build
           zip -r ../anomaly.zip .
           cd ../../../..
+
+      - name: Verify package sizes
+        run: |
+          echo "📦 Verifying Lambda package sizes..."
+          ls -lh src/lambda/processor/processor.zip
+          ls -lh src/lambda/anomaly/anomaly.zip
+          echo "✅ Package sizes verified"
 
       - name: Upload Lambda artifacts
         uses: actions/upload-artifact@v4
