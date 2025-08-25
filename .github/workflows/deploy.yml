@@ -220,8 +220,8 @@ jobs:
 
           # Clean up Lambda Event Source Mappings
           echo "🔍 Checking for existing Lambda Event Source Mappings..."
-          EVENT_MAPPINGS=$(aws lambda list-event-source-mappings --query 'EventSourceMappings[?contains(FunctionName, `blockchain-core`)].UUID' --output text)
-          if [ -n "$EVENT_MAPPINGS" ]; then
+          EVENT_MAPPINGS=$(aws lambda list-event-source-mappings --query 'EventSourceMappings[?contains(FunctionName, `blockchain-core`)].UUID' --output text 2>/dev/null || echo "")
+          if [ -n "$EVENT_MAPPINGS" ] && [ "$EVENT_MAPPINGS" != "null" ]; then
             echo "Found Event Source Mappings: $EVENT_MAPPINGS"
             for mapping in $EVENT_MAPPINGS; do
               echo "Deleting Event Source Mapping: $mapping"
@@ -234,8 +234,8 @@ jobs:
 
           # Clean up CloudWatch Log Groups
           echo "🔍 Checking for existing CloudWatch Log Groups..."
-          LOG_GROUPS=$(aws logs describe-log-groups --query 'logGroups[?contains(logGroupName, `blockchain-core`)].logGroupName' --output text)
-          if [ -n "$LOG_GROUPS" ]; then
+          LOG_GROUPS=$(aws logs describe-log-groups --query 'logGroups[?contains(logGroupName, `blockchain-core`)].logGroupName' --output text 2>/dev/null || echo "")
+          if [ -n "$LOG_GROUPS" ] && [ "$LOG_GROUPS" != "null" ]; then
             echo "Found Log Groups: $LOG_GROUPS"
             for log_group in $LOG_GROUPS; do
               echo "Deleting Log Group: $log_group"
