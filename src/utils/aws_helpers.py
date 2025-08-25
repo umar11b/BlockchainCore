@@ -80,9 +80,7 @@ class SQSHelper(AWSHelper):
             logger.error(f"Error receiving messages from SQS: {e}")
             raise
 
-    def delete_message(
-        self, queue_url: str, receipt_handle: str
-    ) -> Dict[str, Any]:
+    def delete_message(self, queue_url: str, receipt_handle: str) -> Dict[str, Any]:
         """Delete a message from SQS queue"""
         try:
             client = self.get_client("sqs")
@@ -170,9 +168,7 @@ class DynamoDBHelper(AWSHelper):
         """Put an item to DynamoDB"""
         try:
             response = self.table.put_item(Item=item)
-            logger.debug(
-                f"Item put to DynamoDB: {item.get('symbol', 'unknown')}"
-            )
+            logger.debug(f"Item put to DynamoDB: {item.get('symbol', 'unknown')}")
             return response
         except ClientError as e:
             logger.error(f"Error putting item to DynamoDB: {e}")
