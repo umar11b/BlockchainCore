@@ -162,7 +162,7 @@ jobs:
       - name: Clean up orphaned resources
         run: |
           echo "🧹 Cleaning up any orphaned resources..."
-          
+
           # Clean up Lambda functions FIRST (most important)
           echo "🔍 Checking for existing Lambda functions..."
           LAMBDA_FUNCTIONS=$(aws lambda list-functions --query 'Functions[?contains(FunctionName, `blockchain-core`)].FunctionName' --output text)
@@ -176,7 +176,7 @@ jobs:
           else
             echo "No Lambda functions found to clean up"
           fi
-          
+
           # Clean up DynamoDB tables
           echo "🔍 Checking for existing DynamoDB tables..."
           DYNAMODB_TABLES=$(aws dynamodb list-tables --query 'TableNames[?contains(@, `blockchain-core`)]' --output text)
@@ -190,7 +190,7 @@ jobs:
           else
             echo "No DynamoDB tables found to clean up"
           fi
-          
+
           # Clean up IAM roles
           echo "🔍 Checking for existing IAM roles..."
           IAM_ROLES=$(aws iam list-roles --query 'Roles[?contains(RoleName, `blockchain-core`)].RoleName' --output text)
@@ -217,7 +217,35 @@ jobs:
           else
             echo "No IAM roles found to clean up"
           fi
-          
+
+          # Clean up Lambda Event Source Mappings
+          echo "🔍 Checking for existing Lambda Event Source Mappings..."
+          EVENT_MAPPINGS=$(aws lambda list-event-source-mappings --query 'EventSourceMappings[?contains(FunctionName, `blockchain-core`)].UUID' --output text)
+          if [ -n "$EVENT_MAPPINGS" ]; then
+            echo "Found Event Source Mappings: $EVENT_MAPPINGS"
+            for mapping in $EVENT_MAPPINGS; do
+              echo "Deleting Event Source Mapping: $mapping"
+              aws lambda delete-event-source-mapping --uuid "$mapping"
+              echo "✅ Deleted Event Source Mapping: $mapping"
+            done
+          else
+            echo "No Event Source Mappings found to clean up"
+          fi
+
+          # Clean up CloudWatch Log Groups
+          echo "🔍 Checking for existing CloudWatch Log Groups..."
+          LOG_GROUPS=$(aws logs describe-log-groups --query 'logGroups[?contains(logGroupName, `blockchain-core`)].logGroupName' --output text)
+          if [ -n "$LOG_GROUPS" ]; then
+            echo "Found Log Groups: $LOG_GROUPS"
+            for log_group in $LOG_GROUPS; do
+              echo "Deleting Log Group: $log_group"
+              aws logs delete-log-group --log-group-name "$log_group"
+              echo "✅ Deleted Log Group: $log_group"
+            done
+          else
+            echo "No Log Groups found to clean up"
+          fi
+
           echo "✅ Orphaned resources cleanup completed"
 
       - name: Setup Terraform
