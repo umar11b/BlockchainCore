@@ -77,7 +77,7 @@ jobs:
         run: |
           mkdir -p src/lambda/processor/build
           cp src/lambda/processor/processor.py src/lambda/processor/build/
-          pip install -r requirements.txt -t src/lambda/processor/build/
+          pip install -r src/lambda/processor/requirements.txt -t src/lambda/processor/build/ --no-deps
           cd src/lambda/processor/build
           zip -r ../processor.zip .
           cd ../../../..
@@ -86,7 +86,7 @@ jobs:
         run: |
           mkdir -p src/lambda/anomaly/build
           cp src/lambda/anomaly/detector.py src/lambda/anomaly/build/
-          pip install -r requirements.txt -t src/lambda/anomaly/build/
+          pip install -r src/lambda/anomaly/requirements.txt -t src/lambda/anomaly/build/ --no-deps
           cd src/lambda/anomaly/build
           zip -r ../anomaly.zip .
           cd ../../../..
