@@ -19,7 +19,8 @@ from botocore.exceptions import ClientError
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,8 @@ class BinanceWebSocketProducer:
         self.sqs_client = boto3.client("sqs")
         self.queue_url = os.getenv("SQS_QUEUE_URL", "")
         self.websocket_url = os.getenv(
-            "BINANCE_WEBSOCKET_URL", "wss://stream.binance.com:9443/ws/btcusdt@trade"
+            "BINANCE_WEBSOCKET_URL",
+            "wss://stream.binance.com:9443/ws/btcusdt@trade",
         )
         self.symbol = os.getenv("TRADING_SYMBOL", "BTCUSDT")
         self.running = False
@@ -48,28 +50,33 @@ class BinanceWebSocketProducer:
     async def connect_websocket(self):
         """Connect to Binance WebSocket"""
         try:
-            uri = f"wss://stream.binance.com:9443/ws/{self.symbol.lower()}@trade"
-            logger.info(f"Connecting to Binance WebSocket: {uri}")
+            logger.info(f"Connecting to WebSocket: {self.websocket_url}")
 
-            # Simple connection without context manager
-            websocket = await websockets.connect(uri, ping_interval=20, ping_timeout=20)
-            logger.info("Connected to Binance WebSocket")
-            self.running = True
+            # Add timeout to the connection
+            async with websockets.connect(
+                self.websocket_url, ping_interval=20, ping_timeout=10, close_timeout=10
+            ) as websocket:
+                logger.info("WebSocket connected successfully")
 
-            try:
-                async for message in websocket:
-                    if not self.running:
+                # Set a timeout for receiving messages
+                while self.running:
+                    try:
+                        # Wait for message with timeout
+                        message = await asyncio.wait_for(
+                            websocket.recv(), timeout=30.0  # 30 second timeout
+                        )
+                        await self.process_message(message)
+                    except asyncio.TimeoutError:
+                        logger.debug(
+                            "No message received within timeout, continuing..."
+                        )
+                        continue
+                    except websockets.exceptions.ConnectionClosed:
+                        logger.warning("WebSocket connection closed")
                         break
 
-                    try:
-                        await self.process_message(message)
-                    except Exception as e:
-                        logger.error(f"Error processing message: {e}")
-            finally:
-                await websocket.close()
-
         except asyncio.TimeoutError:
-            logger.error("Timeout connecting to Binance WebSocket")
+            logger.error("WebSocket connection timeout")
             raise
         except websockets.exceptions.ConnectionClosed as e:
             logger.error(f"WebSocket connection closed: {e}")
@@ -135,11 +142,22 @@ class BinanceWebSocketProducer:
         """Main run loop"""
         logger.info("Starting Binance WebSocket Producer")
 
-        while self.running:
+        max_retries = 3
+        retry_count = 0
+
+        while self.running and retry_count < max_retries:
             try:
                 await self.connect_websocket()
+                retry_count = 0  # Reset retry count on successful connection
             except Exception as e:
-                logger.error(f"Connection lost, retrying in 5 seconds: {e}")
+                retry_count += 1
+                logger.error(
+                    f"Connection lost (attempt {retry_count}/{max_retries}), "
+                    f"retrying in 5 seconds: {e}"
+                )
+                if retry_count >= max_retries:
+                    logger.error("Max retries reached, stopping producer")
+                    break
                 await asyncio.sleep(5)
 
 

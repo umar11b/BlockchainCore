@@ -8,7 +8,7 @@ import logging
 import os
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import boto3
 from botocore.exceptions import ClientError
@@ -17,17 +17,39 @@ from botocore.exceptions import ClientError
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-# Initialize AWS clients
-s3_client = boto3.client("s3")
-dynamodb = boto3.resource("dynamodb")
-
 # Environment variables
 S3_BUCKET = os.environ["S3_BUCKET_NAME"]
 DYNAMODB_TABLE = os.environ["DYNAMODB_TABLE_NAME"]
 SNS_TOPIC_ARN = os.environ["SNS_TOPIC_ARN"]
 
-# Initialize DynamoDB table
-table = dynamodb.Table(DYNAMODB_TABLE)
+# Lazy initialization of AWS clients
+_s3_client = None
+_dynamodb = None
+_table = None
+
+
+def get_s3_client():
+    """Get S3 client (lazy initialization)"""
+    global _s3_client
+    if _s3_client is None:
+        _s3_client = boto3.client("s3")
+    return _s3_client
+
+
+def get_dynamodb():
+    """Get DynamoDB resource (lazy initialization)"""
+    global _dynamodb
+    if _dynamodb is None:
+        _dynamodb = boto3.resource("dynamodb")
+    return _dynamodb
+
+
+def get_table():
+    """Get DynamoDB table (lazy initialization)"""
+    global _table
+    if _table is None:
+        _table = get_dynamodb().Table(DYNAMODB_TABLE)
+    return _table
 
 
 class OHLCVCalculator:
@@ -36,8 +58,8 @@ class OHLCVCalculator:
     def __init__(self, symbol: str, interval_minutes: int = 1):
         self.symbol = symbol
         self.interval_minutes = interval_minutes
-        self.current_interval = None
-        self.ohlcv_data = {
+        self.current_interval: Optional[str] = None
+        self.ohlcv_data: Dict[str, Any] = {
             "open": None,
             "high": None,
             "low": None,
@@ -55,8 +77,8 @@ class OHLCVCalculator:
         )
         return interval_start.strftime("%Y-%m-%dT%H:%M:00Z")
 
-    def process_trade(self, trade_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Process a single trade and return OHLCV data if interval is complete"""
+    def process_trade(self, trade_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Process a single trade and return OHLCV data if complete"""
         timestamp_ms = trade_data.get("E", int(datetime.now().timestamp() * 1000))
         price = float(trade_data.get("p", 0))
         quantity = float(trade_data.get("q", 0))
@@ -79,15 +101,21 @@ class OHLCVCalculator:
         if self.ohlcv_data["open"] is None:
             self.ohlcv_data["open"] = price
 
-        self.ohlcv_data["high"] = max(self.ohlcv_data["high"] or price, price)
-        self.ohlcv_data["low"] = min(self.ohlcv_data["low"] or price, price)
+        self.ohlcv_data["high"] = max(
+            self.ohlcv_data["high"] if self.ohlcv_data["high"] is not None else price,
+            price,
+        )
+        self.ohlcv_data["low"] = min(
+            self.ohlcv_data["low"] if self.ohlcv_data["low"] is not None else price,
+            price,
+        )
         self.ohlcv_data["close"] = price
         self.ohlcv_data["volume"] += quantity
         self.ohlcv_data["trade_count"] += 1
 
         return None  # No complete interval yet
 
-    def get_ohlcv_data(self) -> Dict[str, Any]:
+    def get_ohlcv_data(self) -> Optional[Dict[str, Any]]:
         """Get current OHLCV data"""
         if self.ohlcv_data["open"] is None:
             return None
@@ -134,8 +162,11 @@ def store_raw_data_in_s3(trade_data: Dict[str, Any], timestamp: datetime):
         data_json = json.dumps(trade_data)
 
         # Upload to S3
-        s3_client.put_object(
-            Bucket=S3_BUCKET, Key=s3_key, Body=data_json, ContentType="application/json"
+        get_s3_client().put_object(
+            Bucket=S3_BUCKET,
+            Key=s3_key,
+            Body=data_json,
+            ContentType="application/json",
         )
 
         logger.debug(f"Stored raw data in S3: {s3_key}")
@@ -162,10 +193,11 @@ def store_ohlcv_in_dynamodb(ohlcv_data: Dict[str, Any]):
         }
 
         # Store in DynamoDB
-        table.put_item(Item=item)
+        get_table().put_item(Item=item)
 
         logger.info(
-            f"Stored OHLCV data for {ohlcv_data['symbol']} at {ohlcv_data['timestamp']}"
+            f"Stored OHLCV data for {ohlcv_data['symbol']} "
+            f"at {ohlcv_data['timestamp']}"
         )
 
     except ClientError as e:

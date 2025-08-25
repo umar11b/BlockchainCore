@@ -188,7 +188,7 @@ class AnomalyDetector:
 
     def detect_anomalies(self, symbol: str) -> List[Dict[str, Any]]:
         """Detect all types of anomalies for a symbol"""
-        anomalies = []
+        anomalies: List[Dict[str, Any]] = []
 
         # Get recent OHLCV data
         ohlcv_data = self.get_recent_ohlcv_data(symbol)
@@ -260,7 +260,7 @@ Time: {anomaly['timestamp']}
         response = sns_client.publish(
             TopicArn=SNS_TOPIC_ARN,
             Subject=(
-                f"BlockchainCore Alert: {anomaly['type'].replace('_', ' ').title()}"
+                f"BlockchainCore Alert: " f"{anomaly['type'].replace('_', ' ').title()}"
             ),
             Message=message.strip(),
         )

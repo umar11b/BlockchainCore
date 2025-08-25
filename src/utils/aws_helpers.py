@@ -18,7 +18,7 @@ class AWSHelper:
 
     def __init__(self, region_name: str = "us-east-1"):
         self.region_name = region_name
-        self._clients = {}
+        self._clients: Dict[str, Any] = {}
 
     def get_client(self, service_name: str):
         """Get or create AWS client"""
@@ -50,7 +50,10 @@ class SQSHelper(AWSHelper):
         """Send a message to SQS queue"""
         try:
             client = self.get_client("sqs")
-            kwargs = {"QueueUrl": queue_url, "MessageBody": json.dumps(data)}
+            kwargs: Dict[str, Any] = {
+                "QueueUrl": queue_url,
+                "MessageBody": json.dumps(data),
+            }
             if delay_seconds > 0:
                 kwargs["DelaySeconds"] = delay_seconds
 
@@ -62,7 +65,10 @@ class SQSHelper(AWSHelper):
             raise
 
     def receive_messages(
-        self, queue_url: str, max_messages: int = 10, wait_time_seconds: int = 20
+        self,
+        queue_url: str,
+        max_messages: int = 10,
+        wait_time_seconds: int = 20,
     ) -> List[Dict[str, Any]]:
         """Receive messages from SQS queue"""
         try:
@@ -82,7 +88,8 @@ class SQSHelper(AWSHelper):
         try:
             client = self.get_client("sqs")
             response = client.delete_message(
-                QueueUrl=queue_url, ReceiptHandle=receipt_handle
+                QueueUrl=queue_url,
+                ReceiptHandle=receipt_handle,
             )
             logger.debug(f"Message deleted from SQS: {receipt_handle}")
             return response
@@ -107,13 +114,20 @@ class S3Helper(AWSHelper):
     """Helper for S3 operations"""
 
     def put_object(
-        self, bucket: str, key: str, data: str, content_type: str = "application/json"
+        self,
+        bucket: str,
+        key: str,
+        data: str,
+        content_type: str = "application/json",
     ) -> Dict[str, Any]:
         """Put an object to S3"""
         try:
             client = self.get_client("s3")
             response = client.put_object(
-                Bucket=bucket, Key=key, Body=data, ContentType=content_type
+                Bucket=bucket,
+                Key=key,
+                Body=data,
+                ContentType=content_type,
             )
             logger.debug(f"Object uploaded to S3: {bucket}/{key}")
             return response
@@ -196,11 +210,13 @@ class DynamoDBHelper(AWSHelper):
             raise
 
     def scan(
-        self, filter_expression: str = None, expression_values: Dict[str, Any] = None
+        self,
+        filter_expression: str = None,
+        expression_values: Dict[str, Any] = None,
     ) -> List[Dict[str, Any]]:
         """Scan items from DynamoDB"""
         try:
-            kwargs = {}
+            kwargs: Dict[str, Any] = {}
             if filter_expression:
                 kwargs["FilterExpression"] = filter_expression
             if expression_values:
