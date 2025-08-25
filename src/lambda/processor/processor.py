@@ -57,9 +57,7 @@ class OHLCVCalculator:
 
     def process_trade(self, trade_data: Dict[str, Any]) -> Dict[str, Any]:
         """Process a single trade and return OHLCV data if complete"""
-        timestamp_ms = trade_data.get(
-            "E", int(datetime.now().timestamp() * 1000)
-        )
+        timestamp_ms = trade_data.get("E", int(datetime.now().timestamp() * 1000))
         price = float(trade_data.get("p", 0))
         quantity = float(trade_data.get("q", 0))
 
