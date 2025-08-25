@@ -89,6 +89,7 @@ jobs:
           cd src/lambda/processor/build
           zip -r ../processor.zip .
           cd ../../../..
+          echo "📦 Built processor package: $(ls -lh src/lambda/processor/processor.zip)"
 
       - name: Build anomaly detector Lambda package
         run: |
@@ -99,13 +100,21 @@ jobs:
           cd src/lambda/anomaly/build
           zip -r ../anomaly.zip .
           cd ../../../..
+          echo "📦 Built anomaly package: $(ls -lh src/lambda/anomaly/anomaly.zip)"
 
-      - name: Verify package sizes
+      - name: Verify package sizes and locations
         run: |
-          echo "📦 Verifying Lambda package sizes..."
+          echo "📦 Verifying Lambda package sizes and locations..."
+          echo "Processor package:"
           ls -lh src/lambda/processor/processor.zip
+          echo "Anomaly package:"
           ls -lh src/lambda/anomaly/anomaly.zip
-          echo "✅ Package sizes verified"
+          echo "✅ Package verification complete"
+          
+          # Verify Terraform can find the packages
+          echo "🔍 Checking Terraform paths..."
+          ls -la terraform/
+          echo "✅ Terraform directory structure verified"
 
       - name: Upload Lambda artifacts
         uses: actions/upload-artifact@v4
@@ -176,6 +185,16 @@ jobs:
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: "1.0"
+
+      - name: Verify Lambda packages for Terraform
+        run: |
+          echo "🔍 Verifying Lambda packages are accessible to Terraform..."
+          echo "Current directory: $(pwd)"
+          echo "Terraform expects: ../src/lambda/processor/processor.zip"
+          ls -lh src/lambda/processor/processor.zip
+          echo "Terraform expects: ../src/lambda/anomaly/anomaly.zip"
+          ls -lh src/lambda/anomaly/anomaly.zip
+          echo "✅ Lambda packages verified for Terraform"
 
       - name: Terraform Init
         run: |
