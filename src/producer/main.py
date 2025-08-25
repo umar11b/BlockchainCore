@@ -50,15 +50,11 @@ class BinanceWebSocketProducer:
     async def connect_websocket(self):
         """Connect to Binance WebSocket"""
         try:
-            uri = (
-                f"wss://stream.binance.com:9443/ws/{self.symbol.lower()}@trade"
-            )
+            uri = f"wss://stream.binance.com:9443/ws/{self.symbol.lower()}@trade"
             logger.info(f"Connecting to Binance WebSocket: {uri}")
 
             # Simple connection without context manager
-            websocket = await websockets.connect(
-                uri, ping_interval=20, ping_timeout=20
-            )
+            websocket = await websockets.connect(uri, ping_interval=20, ping_timeout=20)
             logger.info("Connected to Binance WebSocket")
             self.running = True
 
