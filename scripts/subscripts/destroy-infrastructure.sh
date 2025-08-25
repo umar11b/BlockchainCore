@@ -132,6 +132,89 @@ cleanup_s3_bucket() {
     fi
 }
 
+# Clean up orphaned resources (not in Terraform state)
+cleanup_orphaned_resources() {
+    print_status "Cleaning up orphaned resources..."
+    
+    # Clean up DynamoDB tables
+    print_status "Checking for orphaned DynamoDB tables..."
+    aws dynamodb list-tables --query 'TableNames[?contains(@, `blockchain-core`)]' --output text | while read -r table; do
+        if [ -n "$table" ]; then
+            print_status "Deleting orphaned DynamoDB table: $table"
+            aws dynamodb delete-table --table-name "$table" 2>/dev/null || true
+        fi
+    done
+    
+    # Clean up IAM roles
+    print_status "Checking for orphaned IAM roles..."
+    aws iam list-roles --query 'Roles[?contains(RoleName, `blockchain-core`)].RoleName' --output text | while read -r role; do
+        if [ -n "$role" ]; then
+            print_status "Cleaning up orphaned IAM role: $role"
+            # Detach attached policies first
+            aws iam list-attached-role-policies --role-name "$role" --query 'AttachedPolicies[].PolicyArn' --output text | while read -r policy; do
+                if [ -n "$policy" ]; then
+                    aws iam detach-role-policy --role-name "$role" --policy-arn "$policy" 2>/dev/null || true
+                fi
+            done
+            # Delete inline policies
+            aws iam list-role-policies --role-name "$role" --query 'PolicyNames[]' --output text | while read -r policy; do
+                if [ -n "$policy" ]; then
+                    aws iam delete-role-policy --role-name "$role" --policy-name "$policy" 2>/dev/null || true
+                fi
+            done
+            # Delete the role
+            aws iam delete-role --role-name "$role" 2>/dev/null || true
+        fi
+    done
+    
+    # Clean up SQS queues
+    print_status "Checking for orphaned SQS queues..."
+    aws sqs list-queues --query 'QueueUrls[?contains(@, `blockchain-core`)]' --output text | while read -r queue; do
+        if [ -n "$queue" ]; then
+            print_status "Deleting orphaned SQS queue: $queue"
+            aws sqs delete-queue --queue-url "$queue" 2>/dev/null || true
+        fi
+    done
+    
+    # Clean up S3 buckets
+    print_status "Checking for orphaned S3 buckets..."
+    aws s3 ls | grep blockchain-core | awk '{print $3}' | while read -r bucket; do
+        if [ -n "$bucket" ]; then
+            print_status "Deleting orphaned S3 bucket: $bucket"
+            aws s3 rb "s3://$bucket" --force 2>/dev/null || true
+        fi
+    done
+    
+    # Clean up SNS topics
+    print_status "Checking for orphaned SNS topics..."
+    aws sns list-topics --query 'Topics[?contains(TopicArn, `blockchain-core`)].TopicArn' --output text | while read -r topic; do
+        if [ -n "$topic" ]; then
+            print_status "Deleting orphaned SNS topic: $topic"
+            aws sns delete-topic --topic-arn "$topic" 2>/dev/null || true
+        fi
+    done
+    
+    # Clean up CloudWatch Event rules
+    print_status "Checking for orphaned CloudWatch Event rules..."
+    aws events list-rules --name-prefix blockchain-core --query 'Rules[].Name' --output text | while read -r rule; do
+        if [ -n "$rule" ]; then
+            print_status "Deleting orphaned CloudWatch Event rule: $rule"
+            aws events delete-rule --name "$rule" 2>/dev/null || true
+        fi
+    done
+    
+    # Clean up Lambda functions
+    print_status "Checking for orphaned Lambda functions..."
+    aws lambda list-functions --query 'Functions[?contains(FunctionName, `blockchain-core`)].FunctionName' --output text | while read -r function; do
+        if [ -n "$function" ]; then
+            print_status "Deleting orphaned Lambda function: $function"
+            aws lambda delete-function --function-name "$function" 2>/dev/null || true
+        fi
+    done
+    
+    print_success "Orphaned resources cleanup completed"
+}
+
 # Destroy infrastructure with Terraform
 destroy_terraform() {
     print_status "Destroying infrastructure with Terraform..."
@@ -209,6 +292,9 @@ main() {
     check_terraform
     check_infrastructure
     stop_producers
+    
+    # Clean up orphaned resources first (regardless of Terraform state)
+    cleanup_orphaned_resources
     
     # Skip S3 cleanup if fast shutdown was selected
     if [ "${SKIP_S3_CLEANUP:-false}" != "true" ]; then
