@@ -37,9 +37,8 @@ jobs:
 
       - name: Run linting
         run: |
-          black --check src/
-          isort --check-only src/
-          flake8 src/
+          chmod +x scripts/lint.sh
+          ./scripts/lint.sh --check-only
 
       - name: Run type checking
         run: |
@@ -93,7 +92,7 @@ jobs:
           cd ../../../..
 
       - name: Upload Lambda artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: lambda-packages
           path: |
@@ -109,7 +108,7 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Download Lambda artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: lambda-packages
           path: src/lambda/
@@ -154,7 +153,7 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Download Lambda artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: lambda-packages
           path: src/lambda/
