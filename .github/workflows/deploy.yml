@@ -114,11 +114,18 @@ jobs:
           path: src/lambda/
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
+          role-duration-seconds: 1200
+
+      - name: Debug AWS credentials
+        run: |
+          echo "Checking AWS credentials..."
+          aws sts get-caller-identity || echo "AWS credentials not configured"
+          echo "AWS region: $AWS_DEFAULT_REGION"
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
@@ -159,11 +166,12 @@ jobs:
           path: src/lambda/
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
+          role-duration-seconds: 1200
 
       - name: Update Lambda functions
         run: |
