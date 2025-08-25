@@ -51,32 +51,30 @@ class BinanceWebSocketProducer:
         """Connect to Binance WebSocket"""
         try:
             logger.info(f"Connecting to WebSocket: {self.websocket_url}")
-            
+
             # Add timeout to the connection
             async with websockets.connect(
-                self.websocket_url, 
-                ping_interval=20, 
-                ping_timeout=10,
-                close_timeout=10
+                self.websocket_url, ping_interval=20, ping_timeout=10, close_timeout=10
             ) as websocket:
                 logger.info("WebSocket connected successfully")
-                
+
                 # Set a timeout for receiving messages
                 while self.running:
                     try:
                         # Wait for message with timeout
                         message = await asyncio.wait_for(
-                            websocket.recv(), 
-                            timeout=30.0  # 30 second timeout
+                            websocket.recv(), timeout=30.0  # 30 second timeout
                         )
                         await self.process_message(message)
                     except asyncio.TimeoutError:
-                        logger.debug("No message received within timeout, continuing...")
+                        logger.debug(
+                            "No message received within timeout, continuing..."
+                        )
                         continue
                     except websockets.exceptions.ConnectionClosed:
                         logger.warning("WebSocket connection closed")
                         break
-                        
+
         except asyncio.TimeoutError:
             logger.error("WebSocket connection timeout")
             raise
@@ -143,7 +141,7 @@ class BinanceWebSocketProducer:
     async def run(self):
         """Main run loop"""
         logger.info("Starting Binance WebSocket Producer")
-        
+
         max_retries = 3
         retry_count = 0
 
@@ -153,7 +151,10 @@ class BinanceWebSocketProducer:
                 retry_count = 0  # Reset retry count on successful connection
             except Exception as e:
                 retry_count += 1
-                logger.error(f"Connection lost (attempt {retry_count}/{max_retries}), retrying in 5 seconds: {e}")
+                logger.error(
+                    f"Connection lost (attempt {retry_count}/{max_retries}), "
+                    f"retrying in 5 seconds: {e}"
+                )
                 if retry_count >= max_retries:
                     logger.error("Max retries reached, stopping producer")
                     break
