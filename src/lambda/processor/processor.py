@@ -17,17 +17,39 @@ from botocore.exceptions import ClientError
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-# Initialize AWS clients
-s3_client = boto3.client("s3")
-dynamodb = boto3.resource("dynamodb")
-
 # Environment variables
 S3_BUCKET = os.environ["S3_BUCKET_NAME"]
 DYNAMODB_TABLE = os.environ["DYNAMODB_TABLE_NAME"]
 SNS_TOPIC_ARN = os.environ["SNS_TOPIC_ARN"]
 
-# Initialize DynamoDB table
-table = dynamodb.Table(DYNAMODB_TABLE)
+# Lazy initialization of AWS clients
+_s3_client = None
+_dynamodb = None
+_table = None
+
+
+def get_s3_client():
+    """Get S3 client (lazy initialization)"""
+    global _s3_client
+    if _s3_client is None:
+        _s3_client = boto3.client("s3")
+    return _s3_client
+
+
+def get_dynamodb():
+    """Get DynamoDB resource (lazy initialization)"""
+    global _dynamodb
+    if _dynamodb is None:
+        _dynamodb = boto3.resource("dynamodb")
+    return _dynamodb
+
+
+def get_table():
+    """Get DynamoDB table (lazy initialization)"""
+    global _table
+    if _table is None:
+        _table = get_dynamodb().Table(DYNAMODB_TABLE)
+    return _table
 
 
 class OHLCVCalculator:
@@ -140,7 +162,7 @@ def store_raw_data_in_s3(trade_data: Dict[str, Any], timestamp: datetime):
         data_json = json.dumps(trade_data)
 
         # Upload to S3
-        s3_client.put_object(
+        get_s3_client().put_object(
             Bucket=S3_BUCKET,
             Key=s3_key,
             Body=data_json,
@@ -171,7 +193,7 @@ def store_ohlcv_in_dynamodb(ohlcv_data: Dict[str, Any]):
         }
 
         # Store in DynamoDB
-        table.put_item(Item=item)
+        get_table().put_item(Item=item)
 
         logger.info(
             f"Stored OHLCV data for {ohlcv_data['symbol']} "

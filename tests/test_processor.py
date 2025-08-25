@@ -120,8 +120,8 @@ class TestOHLCVCalculator:
 class TestDataStorage:
     """Test data storage functions"""
 
-    @patch("processor.s3_client")
-    def test_store_raw_data_in_s3(self, mock_s3_client):
+    @patch("processor.get_s3_client")
+    def test_store_raw_data_in_s3(self, mock_get_s3_client):
         """Test storing raw data in S3"""
         trade_data = {
             "s": "BTCUSDT",
@@ -133,13 +133,13 @@ class TestDataStorage:
 
         store_raw_data_in_s3(trade_data, timestamp)
 
-        mock_s3_client.put_object.assert_called_once()
-        call_args = mock_s3_client.put_object.call_args
+        mock_get_s3_client.return_value.put_object.assert_called_once()
+        call_args = mock_get_s3_client.return_value.put_object.call_args
         assert call_args[1]["Bucket"] == "test-bucket"
         assert "raw-data/2023/01/01/12/trades_20230101_1230.json" in call_args[1]["Key"]
 
-    @patch("processor.table")
-    def test_store_ohlcv_in_dynamodb(self, mock_table):
+    @patch("processor.get_table")
+    def test_store_ohlcv_in_dynamodb(self, mock_get_table):
         """Test storing OHLCV data in DynamoDB"""
         ohlcv_data = {
             "symbol": "BTCUSDT",
@@ -154,8 +154,8 @@ class TestDataStorage:
 
         store_ohlcv_in_dynamodb(ohlcv_data)
 
-        mock_table.put_item.assert_called_once()
-        call_args = mock_table.put_item.call_args
+        mock_get_table.return_value.put_item.assert_called_once()
+        call_args = mock_get_table.return_value.put_item.call_args
         item = call_args[1]["Item"]
         assert item["symbol"] == "BTCUSDT"
         assert item["open"] == 50000.00
