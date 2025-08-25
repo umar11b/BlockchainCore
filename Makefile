@@ -33,16 +33,12 @@ test:
 # Run linting
 lint:
 	@echo "Running linting checks..."
-	flake8 src/ tests/
-	black --check src/ tests/
-	isort --check-only src/ tests/
-	mypy src/
+	./scripts/lint.sh --check-only
 
 # Format code
 format:
 	@echo "Formatting code..."
-	black src/ tests/
-	isort src/ tests/
+	./scripts/lint.sh
 
 # Clean build artifacts
 clean:
