@@ -86,7 +86,7 @@ class TestOHLCVCalculator:
 
         # Should return None since no complete interval yet
         assert result is None
-        
+
         # Check that the new interval data is being processed
         assert calculator.ohlcv_data["open"] == 51000.00
         assert calculator.ohlcv_data["high"] == 51000.00
