@@ -75,6 +75,8 @@ jobs:
 
       - name: Build processor Lambda package
         run: |
+          # Clean up any existing build artifacts
+          rm -rf src/lambda/processor/build src/lambda/processor/processor.zip
           mkdir -p src/lambda/processor/build
           cp src/lambda/processor/processor.py src/lambda/processor/build/
           pip install -r src/lambda/processor/requirements.txt -t src/lambda/processor/build/ --no-deps
@@ -84,6 +86,8 @@ jobs:
 
       - name: Build anomaly detector Lambda package
         run: |
+          # Clean up any existing build artifacts
+          rm -rf src/lambda/anomaly/build src/lambda/anomaly/anomaly.zip
           mkdir -p src/lambda/anomaly/build
           cp src/lambda/anomaly/detector.py src/lambda/anomaly/build/
           pip install -r src/lambda/anomaly/requirements.txt -t src/lambda/anomaly/build/ --no-deps
@@ -126,6 +130,35 @@ jobs:
           echo "Checking AWS credentials..."
           aws sts get-caller-identity || echo "AWS credentials not configured"
           echo "AWS region: $AWS_DEFAULT_REGION"
+
+      - name: Clean up orphaned resources
+        run: |
+          echo "🧹 Cleaning up any orphaned resources..."
+          # Clean up DynamoDB tables
+          aws dynamodb list-tables --query 'TableNames[?contains(@, `blockchain-core`)]' --output text | while read -r table; do
+            if [ -n "$table" ]; then
+              echo "Deleting orphaned DynamoDB table: $table"
+              aws dynamodb delete-table --table-name "$table" 2>/dev/null || true
+            fi
+          done
+          # Clean up IAM roles
+          aws iam list-roles --query 'Roles[?contains(RoleName, `blockchain-core`)].RoleName' --output text | while read -r role; do
+            if [ -n "$role" ]; then
+              echo "Cleaning up orphaned IAM role: $role"
+              aws iam list-attached-role-policies --role-name "$role" --query 'AttachedPolicies[].PolicyArn' --output text | while read -r policy; do
+                if [ -n "$policy" ]; then
+                  aws iam detach-role-policy --role-name "$role" --policy-arn "$policy" 2>/dev/null || true
+                fi
+              done
+              aws iam list-role-policies --role-name "$role" --query 'PolicyNames[]' --output text | while read -r policy; do
+                if [ -n "$policy" ]; then
+                  aws iam delete-role-policy --role-name "$role" --policy-name "$policy" 2>/dev/null || true
+                fi
+              done
+              aws iam delete-role --role-name "$role" 2>/dev/null || true
+            fi
+          done
+          echo "✅ Orphaned resources cleanup completed"
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
