@@ -186,6 +186,14 @@ jobs:
               aws iam delete-role --role-name "$role" 2>/dev/null || true
             fi
           done
+          
+          # Clean up Lambda functions
+          aws lambda list-functions --query 'Functions[?contains(FunctionName, `blockchain-core`)].FunctionName' --output text | while read -r function; do
+            if [ -n "$function" ]; then
+              echo "Cleaning up orphaned Lambda function: $function"
+              aws lambda delete-function --function-name "$function" 2>/dev/null || true
+            fi
+          done
           echo "✅ Orphaned resources cleanup completed"
 
       - name: Setup Terraform
