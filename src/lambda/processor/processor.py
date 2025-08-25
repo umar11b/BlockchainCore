@@ -167,7 +167,7 @@ def store_ohlcv_in_dynamodb(ohlcv_data: Dict[str, Any]):
             "close": Decimal(str(ohlcv_data["close"])),
             "volume": Decimal(str(ohlcv_data["volume"])),
             "trade_count": Decimal(str(ohlcv_data["trade_count"])),
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(datetime.UTC).isoformat(),
         }
 
         # Store in DynamoDB

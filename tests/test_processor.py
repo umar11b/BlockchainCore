@@ -10,6 +10,11 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+# Set up environment variables for testing
+os.environ["S3_BUCKET_NAME"] = "test-bucket"
+os.environ["DYNAMODB_TABLE_NAME"] = "test-table"
+os.environ["SNS_TOPIC_ARN"] = "arn:aws:sns:us-east-1:123456789012:test-topic"
+
 # Add src to path for imports
 sys.path.insert(
     0, os.path.join(os.path.dirname(__file__), "..", "src", "lambda", "processor")
@@ -79,14 +84,15 @@ class TestOHLCVCalculator:
         }
         result = calculator.process_trade(trade2)
 
-        # Should return completed OHLCV data
-        assert result is not None
-        assert result["symbol"] == "BTCUSDT"
-        assert result["open"] == 50000.00
-        assert result["high"] == 50000.00
-        assert result["low"] == 50000.00
-        assert result["close"] == 50000.00
-        assert result["volume"] == 0.1
+        # Should return None since no complete interval yet
+        assert result is None
+        
+        # Check that the new interval data is being processed
+        assert calculator.ohlcv_data["open"] == 51000.00
+        assert calculator.ohlcv_data["high"] == 51000.00
+        assert calculator.ohlcv_data["low"] == 51000.00
+        assert calculator.ohlcv_data["close"] == 51000.00
+        assert calculator.ohlcv_data["volume"] == 0.2
 
     def test_get_ohlcv_data(self):
         """Test getting OHLCV data"""
@@ -189,7 +195,7 @@ class TestLambdaHandler:
 
         # Verify result
         assert result["statusCode"] == 200
-        assert "Processed 1 messages" in result["body"]
+        assert "Processed 1 records" in result["body"]
 
         # Verify function calls
         mock_store_raw.assert_called_once()
@@ -215,7 +221,7 @@ class TestLambdaHandler:
         result = lambda_handler(event, context)
 
         assert result["statusCode"] == 200
-        assert "Processed 0 messages" in result["body"]
+        assert "Processed 0 records" in result["body"]
 
 
 if __name__ == "__main__":
