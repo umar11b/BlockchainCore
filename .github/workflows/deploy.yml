@@ -220,7 +220,7 @@ jobs:
 
           # Clean up Lambda Event Source Mappings
           echo "🔍 Checking for existing Lambda Event Source Mappings..."
-          EVENT_MAPPINGS=$(aws lambda list-event-source-mappings --query 'EventSourceMappings[?contains(FunctionName, `blockchain-core`)].UUID' --output text 2>/dev/null || echo "")
+          EVENT_MAPPINGS=$(aws lambda list-event-source-mappings --query 'EventSourceMappings[?contains(FunctionArn, `blockchain-core`)].UUID' --output text 2>/dev/null || echo "")
           if [ -n "$EVENT_MAPPINGS" ] && [ "$EVENT_MAPPINGS" != "null" ]; then
             echo "Found Event Source Mappings: $EVENT_MAPPINGS"
             for mapping in $EVENT_MAPPINGS; do
