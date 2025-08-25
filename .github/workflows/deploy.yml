@@ -79,6 +79,9 @@ jobs:
           rm -rf src/lambda/processor/build src/lambda/processor/processor.zip
           rm -rf src/lambda/anomaly/build src/lambda/anomaly/anomaly.zip
           rm -rf .github/workflows/artifacts
+          # Force clear any cached packages
+          find . -name "*.zip" -delete
+          find . -name "build" -type d -exec rm -rf {} + 2>/dev/null || true
 
       - name: Build processor Lambda package
         run: |
@@ -90,6 +93,8 @@ jobs:
           zip -r ../processor.zip .
           cd ../../../..
           echo "📦 Built processor package: $(ls -lh src/lambda/processor/processor.zip)"
+          echo "📊 Package contents:"
+          unzip -l src/lambda/processor/processor.zip
 
       - name: Build anomaly detector Lambda package
         run: |
@@ -101,6 +106,8 @@ jobs:
           zip -r ../anomaly.zip .
           cd ../../../..
           echo "📦 Built anomaly package: $(ls -lh src/lambda/anomaly/anomaly.zip)"
+          echo "📊 Package contents:"
+          unzip -l src/lambda/anomaly/anomaly.zip
 
       - name: Verify package sizes and locations
         run: |
@@ -110,7 +117,7 @@ jobs:
           echo "Anomaly package:"
           ls -lh src/lambda/anomaly/anomaly.zip
           echo "✅ Package verification complete"
-          
+
           # Verify Terraform can find the packages
           echo "🔍 Checking Terraform paths..."
           ls -la terraform/
