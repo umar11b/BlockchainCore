@@ -221,16 +221,9 @@ destroy_terraform() {
     
     cd terraform
     
-    # Plan the destruction
-    print_status "Planning destruction..."
-    terraform plan -destroy -out=tfdestroyplan
-    
-    # Apply the destruction
-    print_status "Applying destruction..."
-    terraform apply tfdestroyplan
-    
-    # Clean up plan file
-    rm -f tfdestroyplan
+    # Destroy with auto-approve for non-interactive execution
+    print_status "Running terraform destroy..."
+    terraform destroy -auto-approve
     
     cd ..
     
