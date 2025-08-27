@@ -12,7 +12,7 @@ import {
   Alert,
   AlertTitle,
 } from "@mui/material";
-import { Refresh, Analytics, Timeline } from "@mui/icons-material";
+import { Analytics } from "@mui/icons-material";
 import PriceChart from "./PriceChart";
 import MetricsCard from "./MetricsCard";
 import AlertsPanel from "./AlertsPanel";
@@ -48,7 +48,7 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [isPolling, setIsPolling] = useState(false);
-  const [selectedSymbol, setSelectedSymbol] = useState<string>('BTCUSDT');
+  const [selectedSymbol, setSelectedSymbol] = useState<string>("BTCUSDT");
 
   useEffect(() => {
     // Initial data fetch
@@ -127,19 +127,7 @@ const Dashboard: React.FC = () => {
     };
   }, []);
 
-  const handleRefresh = () => {
-    setLoading(true);
-    // Trigger data refresh
-  };
 
-  const getSystemStatus = () => {
-    const highSeverityAnomalies = anomalies.filter(
-      (a) => a.severity === "high"
-    );
-    if (highSeverityAnomalies.length > 0) return "warning";
-    if (anomalies.length > 0) return "info";
-    return "success";
-  };
 
   return (
     <Box sx={{ flexGrow: 1 }}>
@@ -157,21 +145,7 @@ const Dashboard: React.FC = () => {
           >
             BlockchainCore Analytics
           </Typography>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-            <Chip
-              label={`System: ${getSystemStatus()}`}
-              color={getSystemStatus()}
-              size="small"
-              icon={<Timeline />}
-            />
-            <Typography variant="body2" color="text.secondary">
-              Last update: {lastUpdate.toLocaleTimeString()}
-              {isPolling && " (Updating...)"}
-            </Typography>
-            <IconButton onClick={handleRefresh} disabled={loading || isPolling}>
-              <Refresh />
-            </IconButton>
-          </Box>
+
         </Toolbar>
       </AppBar>
 
@@ -191,8 +165,8 @@ const Dashboard: React.FC = () => {
           <Grid container spacing={2}>
             {cryptoData.map((crypto) => (
               <Grid item xs={12} sm={6} key={crypto.symbol}>
-                <MetricsCard 
-                  data={crypto} 
+                <MetricsCard
+                  data={crypto}
                   onClick={() => setSelectedSymbol(crypto.symbol)}
                   isSelected={selectedSymbol === crypto.symbol}
                 />
