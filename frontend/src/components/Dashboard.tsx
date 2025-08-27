@@ -84,26 +84,26 @@ const Dashboard: React.FC = () => {
     // Set up polling for real-time updates (since WebSocket is not configured yet)
     const pollingInterval = setInterval(async () => {
       try {
-        console.log('Polling for new data...');
+        console.log("Polling for new data...");
         setIsPolling(true);
         const [ohlcvData, anomalyData] = await Promise.all([
           fetchLatestOHLCVData(),
           fetchAWSAnomalies(),
         ]);
-        
+
         if (ohlcvData && ohlcvData.length > 0) {
           const formattedData = formatCryptoData(ohlcvData);
           setCryptoData(formattedData);
         }
-        
+
         if (anomalyData && anomalyData.length > 0) {
           setAnomalies(anomalyData);
         }
-        
+
         setLastUpdate(new Date());
         setIsPolling(false);
       } catch (error) {
-        console.error('Polling error:', error);
+        console.error("Polling error:", error);
         // Fallback to mock data if AWS API fails
         try {
           const [data, anomalyData] = await Promise.all([
@@ -114,11 +114,11 @@ const Dashboard: React.FC = () => {
           setAnomalies(anomalyData);
           setLastUpdate(new Date());
         } catch (fallbackError) {
-          console.error('Fallback error:', fallbackError);
+          console.error("Fallback error:", fallbackError);
         }
         setIsPolling(false);
       }
-    }, 30000); // Poll every 30 seconds
+    }, 1000); // Poll every 1 second
 
     // Cleanup function
     return () => {
