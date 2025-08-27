@@ -258,16 +258,106 @@ cleanup_local_files() {
 verify_destruction() {
     print_status "Verifying destruction..."
     
-    # Check if Terraform state is empty
+    echo ""
+    echo "🔍 Destruction Verification Report"
+    echo "=================================="
+    
+    # Check Terraform state
+    print_status "Checking Terraform state..."
     if [ -f "terraform/terraform.tfstate" ]; then
         RESOURCE_COUNT=$(cd terraform && terraform state list 2>/dev/null | wc -l)
         if [ "$RESOURCE_COUNT" -eq 0 ]; then
-            print_success "All resources destroyed"
+            print_success "✅ Terraform state: All resources destroyed"
         else
-            print_error "Some resources may still exist"
+            print_error "❌ Terraform state: $RESOURCE_COUNT resources still exist"
+            cd terraform && terraform state list 2>/dev/null || true
+            cd ..
         fi
     else
-        print_success "Terraform state removed"
+        print_success "✅ Terraform state: State file removed"
+    fi
+    
+    # Check for remaining AWS resources
+    print_status "Checking for remaining AWS resources..."
+    
+    # Check DynamoDB tables
+    DYNAMODB_COUNT=$(aws dynamodb list-tables --query 'TableNames[?contains(@, `blockchain-core`)]' --output text 2>/dev/null | wc -w)
+    if [ "$DYNAMODB_COUNT" -eq 0 ]; then
+        print_success "✅ DynamoDB: No blockchain-core tables found"
+    else
+        print_error "❌ DynamoDB: $DYNAMODB_COUNT tables still exist"
+        aws dynamodb list-tables --query 'TableNames[?contains(@, `blockchain-core`)]' --output text 2>/dev/null || true
+    fi
+    
+    # Check Lambda functions
+    LAMBDA_COUNT=$(aws lambda list-functions --query 'Functions[?contains(FunctionName, `blockchain-core`)].FunctionName' --output text 2>/dev/null | wc -w)
+    if [ "$LAMBDA_COUNT" -eq 0 ]; then
+        print_success "✅ Lambda: No blockchain-core functions found"
+    else
+        print_error "❌ Lambda: $LAMBDA_COUNT functions still exist"
+        aws lambda list-functions --query 'Functions[?contains(FunctionName, `blockchain-core`)].FunctionName' --output text 2>/dev/null || true
+    fi
+    
+    # Check SQS queues
+    SQS_COUNT=$(aws sqs list-queues --query 'QueueUrls[?contains(@, `blockchain-core`)]' --output text 2>/dev/null | wc -w)
+    if [ "$SQS_COUNT" -eq 0 ]; then
+        print_success "✅ SQS: No blockchain-core queues found"
+    else
+        print_error "❌ SQS: $SQS_COUNT queues still exist"
+        aws sqs list-queues --query 'QueueUrls[?contains(@, `blockchain-core`)]' --output text 2>/dev/null || true
+    fi
+    
+    # Check S3 buckets
+    S3_COUNT=$(aws s3 ls 2>/dev/null | grep blockchain-core | wc -l)
+    if [ "$S3_COUNT" -eq 0 ]; then
+        print_success "✅ S3: No blockchain-core buckets found"
+    else
+        print_error "❌ S3: $S3_COUNT buckets still exist"
+        aws s3 ls 2>/dev/null | grep blockchain-core || true
+    fi
+    
+    # Check SNS topics
+    SNS_COUNT=$(aws sns list-topics --query 'Topics[?contains(TopicArn, `blockchain-core`)].TopicArn' --output text 2>/dev/null | wc -w)
+    if [ "$SNS_COUNT" -eq 0 ]; then
+        print_success "✅ SNS: No blockchain-core topics found"
+    else
+        print_error "❌ SNS: $SNS_COUNT topics still exist"
+        aws sns list-topics --query 'Topics[?contains(TopicArn, `blockchain-core`)].TopicArn' --output text 2>/dev/null || true
+    fi
+    
+    # Check CloudWatch Event rules
+    EVENT_COUNT=$(aws events list-rules --name-prefix blockchain-core --query 'Rules[].Name' --output text 2>/dev/null | wc -w)
+    if [ "$EVENT_COUNT" -eq 0 ]; then
+        print_success "✅ CloudWatch Events: No blockchain-core rules found"
+    else
+        print_error "❌ CloudWatch Events: $EVENT_COUNT rules still exist"
+        aws events list-rules --name-prefix blockchain-core --query 'Rules[].Name' --output text 2>/dev/null || true
+    fi
+    
+    # Check IAM roles
+    IAM_COUNT=$(aws iam list-roles --query 'Roles[?contains(RoleName, `blockchain-core`)].RoleName' --output text 2>/dev/null | wc -w)
+    if [ "$IAM_COUNT" -eq 0 ]; then
+        print_success "✅ IAM: No blockchain-core roles found"
+    else
+        print_error "❌ IAM: $IAM_COUNT roles still exist"
+        aws iam list-roles --query 'Roles[?contains(RoleName, `blockchain-core`)].RoleName' --output text 2>/dev/null || true
+    fi
+    
+    # Summary
+    echo ""
+    echo "📊 Destruction Summary:"
+    echo "======================"
+    TOTAL_REMAINING=$((DYNAMODB_COUNT + LAMBDA_COUNT + SQS_COUNT + S3_COUNT + SNS_COUNT + EVENT_COUNT + IAM_COUNT))
+    
+    if [ "$TOTAL_REMAINING" -eq 0 ]; then
+        print_success "🎉 SUCCESS: All infrastructure has been completely destroyed!"
+    else
+        print_error "⚠️  WARNING: $TOTAL_REMAINING resources may still exist"
+        echo ""
+        echo "If resources remain, you may need to:"
+        echo "1. Wait a few minutes for AWS to complete deletion"
+        echo "2. Manually delete remaining resources in AWS Console"
+        echo "3. Check for dependencies preventing deletion"
     fi
 }
 
