@@ -48,6 +48,7 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [isPolling, setIsPolling] = useState(false);
+  const [selectedSymbol, setSelectedSymbol] = useState<string>('BTCUSDT');
 
   useEffect(() => {
     // Initial data fetch
@@ -190,7 +191,11 @@ const Dashboard: React.FC = () => {
           <Grid container spacing={2}>
             {cryptoData.map((crypto) => (
               <Grid item xs={12} sm={6} key={crypto.symbol}>
-                <MetricsCard data={crypto} />
+                <MetricsCard 
+                  data={crypto} 
+                  onClick={() => setSelectedSymbol(crypto.symbol)}
+                  isSelected={selectedSymbol === crypto.symbol}
+                />
               </Grid>
             ))}
           </Grid>
@@ -208,7 +213,7 @@ const Dashboard: React.FC = () => {
               <Typography variant="h6" gutterBottom>
                 Real-Time Price Chart
               </Typography>
-              <PriceChart data={cryptoData} />
+              <PriceChart data={cryptoData} selectedSymbol={selectedSymbol} />
             </CardContent>
           </Card>
         </Grid>

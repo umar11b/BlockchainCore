@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   XAxis,
   YAxis,
@@ -8,7 +8,16 @@ import {
   Area,
   AreaChart,
 } from "recharts";
-import { Box, Typography, Skeleton } from "@mui/material";
+import {
+  Box,
+  Typography,
+  Skeleton,
+  ToggleButtonGroup,
+  ToggleButton,
+  CircularProgress,
+  Chip,
+} from "@mui/material";
+import { fetchHistoricalData } from "../services/aws-api";
 
 interface CryptoData {
   symbol: string;
@@ -21,28 +30,129 @@ interface CryptoData {
 
 interface PriceChartProps {
   data: CryptoData[];
+  selectedSymbol?: string;
   loading?: boolean;
 }
 
 // Mock historical data for demonstration
-const generateMockHistoricalData = (symbol: string, currentPrice: number) => {
+const generateMockHistoricalData = (
+  symbol: string,
+  currentPrice: number,
+  timeframe: "1h" | "24h"
+) => {
   const data = [];
   const now = new Date();
 
-  for (let i = 23; i >= 0; i--) {
-    const time = new Date(now.getTime() - i * 60 * 60 * 1000); // Last 24 hours
-    const basePrice = currentPrice * (0.95 + Math.random() * 0.1); // ±5% variation
-    data.push({
-      time: time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      price: basePrice,
-      volume: Math.random() * 1000000,
-    });
+  if (timeframe === "1h") {
+    // Generate 60 data points for 1 hour (1 minute intervals)
+    let lastPrice = currentPrice;
+    for (let i = 59; i >= 0; i--) {
+      const time = new Date(now.getTime() - i * 60 * 1000); // Last 60 minutes
+      // Create smoother price movement
+      const change = (Math.random() - 0.5) * 0.002; // ±0.1% change per minute
+      lastPrice = lastPrice * (1 + change);
+      data.push({
+        time: time.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+        timestamp: time.getTime(),
+        price: lastPrice,
+        volume: Math.random() * 1000000,
+      });
+    }
+  } else {
+    // Generate 24 data points for 24 hours (1 hour intervals)
+    let lastPrice = currentPrice;
+    for (let i = 23; i >= 0; i--) {
+      const time = new Date(now.getTime() - i * 60 * 60 * 1000); // Last 24 hours
+      // Create smoother price movement
+      const change = (Math.random() - 0.5) * 0.02; // ±1% change per hour
+      lastPrice = lastPrice * (1 + change);
+      data.push({
+        time: time.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+        timestamp: time.getTime(),
+        price: lastPrice,
+        volume: Math.random() * 1000000,
+      });
+    }
   }
 
   return data;
 };
 
-const PriceChart: React.FC<PriceChartProps> = ({ data, loading = false }) => {
+const PriceChart: React.FC<PriceChartProps> = ({ data, selectedSymbol, loading = false }) => {
+  const [timeframe, setTimeframe] = useState<"1h" | "24h">("1h");
+  const [chartData, setChartData] = useState<any[]>([]);
+  const [historicalLoading, setHistoricalLoading] = useState(false);
+
+  // Find the selected cryptocurrency or default to the first one
+  const selectedCrypto = data.find(crypto => crypto.symbol === selectedSymbol) || data[0];
+
+  useEffect(() => {
+    if (!selectedCrypto) return;
+
+    const fetchData = async () => {
+      setHistoricalLoading(true);
+      try {
+        // Try to fetch real historical data from AWS
+        const hours = timeframe === "1h" ? 1 : 24;
+        const historicalData = await fetchHistoricalData(
+          selectedCrypto.symbol,
+          timeframe,
+          hours
+        );
+
+        if (historicalData && historicalData.length > 0) {
+          // Use real data
+          const formattedData = historicalData.map((item) => ({
+            time: new Date(item.timestamp).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+            timestamp: item.timestamp,
+            price: item.close,
+            volume: item.volume,
+          }));
+          setChartData(formattedData);
+        } else {
+          // Fallback to mock data
+          const mockData = generateMockHistoricalData(
+            selectedCrypto.symbol,
+            selectedCrypto.price,
+            timeframe
+          );
+          setChartData(mockData);
+        }
+      } catch (error) {
+        console.error("Error fetching historical data:", error);
+        // Fallback to mock data
+        const mockData = generateMockHistoricalData(
+          selectedCrypto.symbol,
+          selectedCrypto.price,
+          timeframe
+        );
+        setChartData(mockData);
+      } finally {
+        setHistoricalLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [selectedCrypto, timeframe]);
+
+  const handleTimeframeChange = (
+    event: React.MouseEvent<HTMLElement>,
+    newTimeframe: "1h" | "24h" | null
+  ) => {
+    if (newTimeframe !== null) {
+      setTimeframe(newTimeframe);
+    }
+  };
+
   if (loading) {
     return (
       <Box
@@ -74,13 +184,6 @@ const PriceChart: React.FC<PriceChartProps> = ({ data, loading = false }) => {
       </Box>
     );
   }
-
-  // Use the first cryptocurrency for the chart (in a real app, you'd have user selection)
-  const selectedCrypto = data[0];
-  const chartData = generateMockHistoricalData(
-    selectedCrypto.symbol,
-    selectedCrypto.price
-  );
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -119,12 +222,51 @@ const PriceChart: React.FC<PriceChartProps> = ({ data, loading = false }) => {
           alignItems: "center",
         }}
       >
-        <Typography variant="h6" color="text.primary">
-          {selectedCrypto.symbol} Price Chart (24h)
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Real-time data from Binance WebSocket
-        </Typography>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <Typography variant="h6" color="text.primary">
+            {selectedCrypto.symbol} Price Chart
+          </Typography>
+          <Chip 
+            label="Selected" 
+            size="small" 
+            color="primary" 
+            variant="outlined"
+            sx={{ ml: 1 }}
+          />
+          {historicalLoading && <CircularProgress size={20} />}
+        </Box>
+
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <ToggleButtonGroup
+            value={timeframe}
+            exclusive
+            onChange={handleTimeframeChange}
+            size="small"
+            sx={{
+              "& .MuiToggleButton-root": {
+                color: "#b0b0b0",
+                borderColor: "#333",
+                "&.Mui-selected": {
+                  backgroundColor: "#00d4aa",
+                  color: "#000",
+                  "&:hover": {
+                    backgroundColor: "#00d4aa",
+                  },
+                },
+                "&:hover": {
+                  backgroundColor: "#333",
+                },
+              },
+            }}
+          >
+            <ToggleButton value="1h">1H</ToggleButton>
+            <ToggleButton value="24h">24H</ToggleButton>
+          </ToggleButtonGroup>
+
+          <Typography variant="body2" color="text.secondary">
+            Real-time data from Binance WebSocket
+          </Typography>
+        </Box>
       </Box>
 
       <ResponsiveContainer width="100%" height="100%">

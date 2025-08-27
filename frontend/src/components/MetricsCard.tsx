@@ -21,9 +21,11 @@ interface CryptoData {
 interface MetricsCardProps {
   data: CryptoData;
   loading?: boolean;
+  onClick?: () => void;
+  isSelected?: boolean;
 }
 
-const MetricsCard: React.FC<MetricsCardProps> = ({ data, loading = false }) => {
+const MetricsCard: React.FC<MetricsCardProps> = ({ data, loading = false, onClick, isSelected = false }) => {
   if (loading) {
     return (
       <Card>
@@ -79,10 +81,16 @@ const MetricsCard: React.FC<MetricsCardProps> = ({ data, loading = false }) => {
 
   return (
     <Card
+      onClick={onClick}
       sx={{
         height: "100%",
         transition: "transform 0.2s",
-        "&:hover": { transform: "translateY(-2px)" },
+        cursor: onClick ? "pointer" : "default",
+        border: isSelected ? "2px solid #00d4aa" : "1px solid #333",
+        "&:hover": { 
+          transform: onClick ? "translateY(-2px)" : "none",
+          borderColor: onClick ? "#00d4aa" : "#333"
+        },
       }}
     >
       <CardContent>
