@@ -47,6 +47,7 @@ const Dashboard: React.FC = () => {
   const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [isPolling, setIsPolling] = useState(false);
 
   useEffect(() => {
     // Initial data fetch
@@ -80,45 +81,48 @@ const Dashboard: React.FC = () => {
 
     fetchInitialData();
 
-    // Set up real-time WebSocket connection
-    const wsConnection = createRealTimeConnection((message) => {
-      if (message.type === "data_update") {
-        const { ohlcv, anomalies } = message.data;
-        if (ohlcv) {
-          const formattedData = formatCryptoData(ohlcv);
+    // Set up polling for real-time updates (since WebSocket is not configured yet)
+    const pollingInterval = setInterval(async () => {
+      try {
+        console.log('Polling for new data...');
+        setIsPolling(true);
+        const [ohlcvData, anomalyData] = await Promise.all([
+          fetchLatestOHLCVData(),
+          fetchAWSAnomalies(),
+        ]);
+        
+        if (ohlcvData && ohlcvData.length > 0) {
+          const formattedData = formatCryptoData(ohlcvData);
           setCryptoData(formattedData);
         }
-        if (anomalies) {
-          setAnomalies(anomalies);
+        
+        if (anomalyData && anomalyData.length > 0) {
+          setAnomalies(anomalyData);
         }
+        
         setLastUpdate(new Date());
-      } else if (message.type === "price_update") {
-        // Handle individual price updates
-        const updatedData = cryptoData.map((crypto) => {
-          const update = message.data.find(
-            (u: any) => u.symbol === crypto.symbol
-          );
-          if (update) {
-            return {
-              ...crypto,
-              price: update.price,
-              lastUpdated: update.timestamp,
-            };
-          }
-          return crypto;
-        });
-        setCryptoData(updatedData);
-        setLastUpdate(new Date());
-      } else if (message.type === "anomaly_alert") {
-        // Handle new anomaly alerts
-        setAnomalies((prev) => [message.data, ...prev.slice(0, 9)]); // Keep latest 10
-        setLastUpdate(new Date());
+        setIsPolling(false);
+      } catch (error) {
+        console.error('Polling error:', error);
+        // Fallback to mock data if AWS API fails
+        try {
+          const [data, anomalyData] = await Promise.all([
+            fetchLatestData(),
+            fetchAnomalies(),
+          ]);
+          setCryptoData(data);
+          setAnomalies(anomalyData);
+          setLastUpdate(new Date());
+        } catch (fallbackError) {
+          console.error('Fallback error:', fallbackError);
+        }
+        setIsPolling(false);
       }
-    });
+    }, 30000); // Poll every 30 seconds
 
     // Cleanup function
     return () => {
-      wsConnection.close();
+      clearInterval(pollingInterval);
     };
   }, []);
 
@@ -161,8 +165,9 @@ const Dashboard: React.FC = () => {
             />
             <Typography variant="body2" color="text.secondary">
               Last update: {lastUpdate.toLocaleTimeString()}
+              {isPolling && " (Updating...)"}
             </Typography>
-            <IconButton onClick={handleRefresh} disabled={loading}>
+            <IconButton onClick={handleRefresh} disabled={loading || isPolling}>
               <Refresh />
             </IconButton>
           </Box>
