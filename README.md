@@ -50,21 +50,53 @@ NOTE: Git commit history is gone since main branch was changed
 - 📊 **Analytics**: Glue crawls S3 → Athena queries historical data
 - 🚨 **Monitoring**: EventBridge triggers anomaly detection → SNS alerts
 - 📈 **Observability**: CloudWatch collects logs and metrics from all services
+- 🖥️ **Frontend**: React dashboard with real-time data visualization
+
+**Frontend Architecture:**
+
+- **React 18** with TypeScript for type safety
+- **Material-UI v5** for professional dark theme design
+- **Recharts** for interactive cryptocurrency price charts
+- **Axios** for API communication with AWS backend
+- **Real-time polling** with 1-second updates for live data
+- **Responsive design** that works on desktop and mobile
 
 ## 📊 Project Status
 
-| Component                      | Status         | Notes                                             |
-| ------------------------------ | -------------- | ------------------------------------------------- |
-| **Infrastructure (Terraform)** | ✅ Complete    | SQS, Lambda, DynamoDB, S3, EventBridge deployed   |
-| **Data Producer**              | ✅ Complete    | Binance WebSocket → SQS streaming working         |
-| **Data Processor**             | ✅ Complete    | SQS → OHLCV → DynamoDB/S3 processing              |
-| **Anomaly Detection**          | ✅ Complete    | EventBridge → Lambda → SNS alerts                 |
-| **Cost Optimization**          | ✅ Complete    | Migrated from Kinesis to SQS (~$13/month savings) |
-| **Monitoring & Logging**       | ✅ Complete    | CloudWatch metrics and logs active                |
-| **Frontend Dashboard**         | 🚧 In Progress | Real-time data visualization                      |
-| **Multi-Symbol Support**       | 📋 Planned     | Add ETH, ADA, and other trading pairs             |
-| **Advanced Analytics**         | 📋 Planned     | ML-based anomaly detection                        |
-| **Mobile Alerts**              | 📋 Planned     | Push notifications for anomalies                  |
+| Component                      | Status      | Notes                                              |
+| ------------------------------ | ----------- | -------------------------------------------------- |
+| **Infrastructure (Terraform)** | ✅ Complete | SQS, Lambda, DynamoDB, S3, EventBridge deployed    |
+| **Data Producer**              | ✅ Complete | Binance WebSocket → SQS streaming working          |
+| **Data Processor**             | ✅ Complete | SQS → OHLCV → DynamoDB/S3 processing               |
+| **Anomaly Detection**          | ✅ Complete | EventBridge → Lambda → SNS alerts                  |
+| **Cost Optimization**          | ✅ Complete | Migrated from Kinesis to SQS (~$13/month savings)  |
+| **Monitoring & Logging**       | ✅ Complete | CloudWatch metrics and logs active                 |
+| **Frontend Dashboard**         | ✅ Complete | Interactive React dashboard with real-time data    |
+| **Multi-Symbol Support**       | 📋 Planned  | Add ETH, ADA, and other trading pairs              |
+| **Advanced Analytics**         | 📋 Planned  | ML-based anomaly detection                         |
+| **Mobile Alerts**              | 📋 Planned  | Push notifications for anomalies                   |
+| **Script Improvements**        | 📋 Planned  | Fix EventBridge deletion issues, add WebSocket API |
+
+## 📝 TODO & Known Issues
+
+### 🔧 **Infrastructure Scripts**
+
+- [ ] **Fix EventBridge deletion**: Currently requires manual target removal before rule deletion
+- [ ] **Add WebSocket API Gateway**: For true real-time frontend updates instead of polling
+- [ ] **Improve timeout handling**: Better macOS compatibility for timeout commands
+- [ ] **Add force destroy option**: Skip confirmation for automated deployments
+
+### 🐛 **Known Issues**
+
+- [ ] **Lambda hanging**: Sometimes Lambda deployment hangs during function creation
+- [ ] **S3 bucket cleanup**: Occasional issues with versioned bucket cleanup
+- [ ] **Terraform state conflicts**: Resources sometimes get stuck in deletion
+
+### 🔗 **Quick Fixes**
+
+- **EventBridge stuck?** → [Manual cleanup guide](docs/troubleshooting.md#eventbridge-cleanup)
+- **Lambda hanging?** → [Skip and retry](docs/troubleshooting.md#lambda-hanging)
+- **S3 cleanup issues?** → [Force bucket deletion](docs/troubleshooting.md#s3-cleanup)
 
 ## 🗺️ Project Roadmap (Future Plans)
 
@@ -132,6 +164,10 @@ NOTE: Git commit history is gone since main branch was changed
 - **Data Analytics**: AWS Glue Catalog + Athena for historical data queries
 - **Anomaly Detection**: Automated detection of price movements, volume spikes, and SMA divergences
 - **Alerting**: SNS notifications for detected anomalies
+- **Frontend Dashboard**: Interactive React dashboard with real-time cryptocurrency data visualization
+- **Interactive Charts**: Clickable cryptocurrency cards with 1H/24H price charts
+- **Real-time Updates**: Live data polling with visual feedback
+- **Professional UI**: Material-UI dark theme with responsive design
 - **Infrastructure as Code**: Terraform for AWS resource management
 - **CI/CD**: GitHub Actions for automated deployments
 
@@ -140,6 +176,7 @@ NOTE: Git commit history is gone since main branch was changed
 - AWS CLI configured with appropriate permissions
 - Terraform >= 1.0
 - Python 3.9+
+- Node.js 18+ (for frontend development)
 - Docker (for local development)
 - GitHub repository with Actions enabled
 
@@ -184,6 +221,42 @@ We've created convenient scripts to manage your infrastructure safely:
 - **Stops all costs immediately**
 - **Requires confirmation to prevent accidents**
 - **Complete cleanup including S3 bucket versions**
+- **Enhanced verification reporting**
+
+#### **4. Frontend Development**
+
+```bash
+cd frontend
+npm install
+npm start
+```
+
+- **Interactive cryptocurrency dashboard**
+- **Real-time data updates every 1 second**
+- **Clickable cryptocurrency cards**
+- **Professional Material-UI design**
+- **1H/24H interactive price charts**
+
+#### **Frontend Development Output**
+
+```bash
+$ cd frontend && npm start
+
+Compiled successfully!
+
+You can now view blockchaincore in the browser.
+
+  Local:            http://localhost:3000
+  On Your Network:  http://192.168.1.100:3000
+
+Note that the development build is not optimized.
+To create a production build, use npm run build.
+
+✅ Real-time data polling every 1 second
+✅ Interactive cryptocurrency selection
+✅ Professional Material-UI dark theme
+✅ Responsive design for all devices
+```
 
 **Shutdown Options:**
 
@@ -210,6 +283,118 @@ echo "yes" | ./scripts/stop-infrastructure.sh
 
 # Interactive (choose at runtime)
 ./scripts/stop-infrastructure.sh
+```
+
+### 🛠️ **Enhanced Infrastructure Management**
+
+Our infrastructure scripts now include:
+
+- **Retry Logic**: Automatic retry with timeout for Terraform operations
+- **Force Cleanup**: Removes stuck resources that prevent deletion
+- **Comprehensive Verification**: Detailed reporting of what was destroyed
+- **macOS Compatibility**: Works on both Linux and macOS systems
+- **Error Handling**: Graceful handling of AWS API failures
+
+### 📺 **Terminal Output Examples**
+
+#### **Monitor Script Output**
+
+```bash
+$ ./scripts/monitor.sh
+
+╔══════════════════════════════════════════════════════════════╗
+║                BlockchainCore Monitoring                     ║
+╚══════════════════════════════════════════════════════════════╝
+
+[INFO] Checking AWS configuration...
+[SUCCESS] AWS CLI configured
+
+📊 Infrastructure Status:
+✅ SQS Queue: blockchain-core-trade-data (0 messages)
+✅ DynamoDB Table: blockchain-core-ohlcv-data (1,247 items)
+✅ S3 Bucket: blockchain-core-raw-data-abc123 (2.3 GB)
+✅ Lambda Functions: 2 active (processor, anomaly-detector)
+✅ EventBridge Rule: blockchain-core-anomaly-detection (ENABLED)
+
+💰 Estimated Monthly Cost: $12.45
+📈 Data Processing: 1,247 OHLCV records today
+🚨 Recent Alerts: 3 anomalies detected in last hour
+
+📋 Monitoring Options:
+1. View SQS Queue Status
+2. Check DynamoDB Data
+3. Monitor S3 Storage
+4. View Lambda Logs
+5. Check EventBridge Rules
+6. Monitor CloudWatch Metrics
+7. View Recent Anomalies
+8. Cost Analysis
+9. Exit
+
+Enter your choice (1-9):
+```
+
+#### **Stop Infrastructure Output**
+
+```bash
+$ ./scripts/stop-infrastructure.sh
+
+🛑 Stopping BlockchainCore Infrastructure...
+==========================================
+  BlockchainCore Complete Shutdown
+==========================================
+
+[WARNING] ⚠️  WARNING: This will destroy ALL infrastructure and data!
+[WARNING]    This action cannot be undone.
+
+Options:
+  'yes'     - Full cleanup (including S3 bucket)
+  'fast'    - Quick shutdown (skip S3 cleanup)
+  'cancel'  - Cancel operation
+
+Choose option: yes
+[INFO] Destroying infrastructure...
+[INFO] Checking AWS configuration...
+[SUCCESS] AWS CLI configured
+[INFO] Checking Terraform installation...
+[SUCCESS] Terraform found: Terraform v1.5.7
+[INFO] Checking if infrastructure exists...
+[SUCCESS] Infrastructure found
+[INFO] Stopping any running producers...
+[SUCCESS] No running producer processes found
+[INFO] Cleaning up orphaned resources...
+[INFO] Checking for orphaned DynamoDB tables...
+[INFO] Deleting orphaned DynamoDB table: blockchain-core-ohlcv-data
+[INFO] Checking for orphaned Lambda functions...
+[INFO] Deleting orphaned Lambda function: blockchain-core-anomaly-detector
+[INFO] Deleting orphaned Lambda function: blockchain-core-processor
+[SUCCESS] Orphaned resources cleanup completed
+
+🔍 Destruction Verification Report
+==================================
+✅ Terraform state: All resources destroyed
+✅ DynamoDB: No blockchain-core tables found
+✅ Lambda: No blockchain-core functions found
+✅ SQS: No blockchain-core queues found
+✅ S3: No blockchain-core buckets found
+✅ SNS: No blockchain-core topics found
+✅ CloudWatch Events: No blockchain-core rules found
+✅ IAM: No blockchain-core roles found
+
+📊 Destruction Summary:
+======================
+🎉 SUCCESS: All infrastructure has been completely destroyed!
+
+💰 Cost Savings:
+================
+✅ No more SQS charges
+✅ No more Lambda charges
+✅ No more DynamoDB charges
+✅ No more S3 charges (except minimal storage)
+✅ No more CloudWatch charges
+✅ No more EventBridge charges
+
+Your monthly AWS bill should now be minimal!
 ```
 
 ### 📋 **Manual Steps (Alternative)**
