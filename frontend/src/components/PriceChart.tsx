@@ -84,13 +84,18 @@ const generateMockHistoricalData = (
   return data;
 };
 
-const PriceChart: React.FC<PriceChartProps> = ({ data, selectedSymbol, loading = false }) => {
+const PriceChart: React.FC<PriceChartProps> = ({
+  data,
+  selectedSymbol,
+  loading = false,
+}) => {
   const [timeframe, setTimeframe] = useState<"1h" | "24h">("1h");
   const [chartData, setChartData] = useState<any[]>([]);
   const [historicalLoading, setHistoricalLoading] = useState(false);
 
   // Find the selected cryptocurrency or default to the first one
-  const selectedCrypto = data.find(crypto => crypto.symbol === selectedSymbol) || data[0];
+  const selectedCrypto =
+    data.find((crypto) => crypto.symbol === selectedSymbol) || data[0];
 
   useEffect(() => {
     if (!selectedCrypto) return;
@@ -226,10 +231,10 @@ const PriceChart: React.FC<PriceChartProps> = ({ data, selectedSymbol, loading =
           <Typography variant="h6" color="text.primary">
             {selectedCrypto.symbol} Price Chart
           </Typography>
-          <Chip 
-            label="Selected" 
-            size="small" 
-            color="primary" 
+          <Chip
+            label="Selected"
+            size="small"
+            color="primary"
             variant="outlined"
             sx={{ ml: 1 }}
           />

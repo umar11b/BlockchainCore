@@ -127,8 +127,6 @@ const Dashboard: React.FC = () => {
     };
   }, []);
 
-
-
   return (
     <Box sx={{ flexGrow: 1 }}>
       {/* Header */}
@@ -145,7 +143,6 @@ const Dashboard: React.FC = () => {
           >
             BlockchainCore Analytics
           </Typography>
-
         </Toolbar>
       </AppBar>
 
