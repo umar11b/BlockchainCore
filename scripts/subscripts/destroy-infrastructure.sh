@@ -24,6 +24,10 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+print_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
 # Check AWS configuration
 check_aws_config() {
     print_status "Checking AWS configuration..."
@@ -80,8 +84,8 @@ stop_producers() {
 cleanup_s3_bucket() {
     print_status "Cleaning up S3 bucket..."
     
-    # Get bucket name from Terraform state
-    BUCKET_NAME=$(cd terraform && terraform output -raw s3_bucket_name 2>/dev/null || echo "")
+    # Get bucket name directly from AWS (avoid terraform output issues)
+    BUCKET_NAME=$(aws s3 ls 2>/dev/null | grep blockchain-core | head -1 | awk '{print $3}' || echo "")
     
     if [ -n "$BUCKET_NAME" ]; then
         print_status "Cleaning bucket: $BUCKET_NAME"
@@ -90,8 +94,21 @@ cleanup_s3_bucket() {
         VERSIONS_FILE=$(mktemp)
         DELETE_MARKERS_FILE=$(mktemp)
         
-        # Get all versions and delete markers in bulk
-        aws s3api list-object-versions --bucket "$BUCKET_NAME" --output json > /tmp/bucket_versions.json
+        # Get all versions and delete markers in bulk (with timeout - macOS compatible)
+        if command -v timeout >/dev/null 2>&1; then
+            timeout 60 aws s3api list-object-versions --bucket "$BUCKET_NAME" --output json > /tmp/bucket_versions.json 2>/dev/null || {
+                print_warning "S3 bucket listing timed out or failed, skipping detailed cleanup"
+                rm -f /tmp/bucket_versions.json
+                return 0
+            }
+        else
+            # macOS fallback - run without timeout
+            aws s3api list-object-versions --bucket "$BUCKET_NAME" --output json > /tmp/bucket_versions.json 2>/dev/null || {
+                print_warning "S3 bucket listing failed, skipping detailed cleanup"
+                rm -f /tmp/bucket_versions.json
+                return 0
+            }
+        fi
         
         # Extract versions for bulk deletion
         jq -r '.Versions[]? | {Key: .Key, VersionId: .VersionId}' /tmp/bucket_versions.json > "$VERSIONS_FILE"
@@ -128,7 +145,7 @@ cleanup_s3_bucket() {
         rm -f "$VERSIONS_FILE" "$DELETE_MARKERS_FILE" /tmp/bucket_versions.json
         
     else
-        print_status "No S3 bucket found in Terraform state"
+        print_status "No S3 bucket found, skipping S3 cleanup"
     fi
 }
 
@@ -144,6 +161,10 @@ cleanup_orphaned_resources() {
             aws dynamodb delete-table --table-name "$table" 2>/dev/null || true
         fi
     done
+    
+    # Wait for DynamoDB deletions to complete
+    print_status "Waiting for DynamoDB deletions to complete..."
+    sleep 10
     
     # Clean up IAM roles
     print_status "Checking for orphaned IAM roles..."
@@ -215,26 +236,145 @@ cleanup_orphaned_resources() {
     print_success "Orphaned resources cleanup completed"
 }
 
+# Force cleanup of stuck resources
+force_cleanup_stuck_resources() {
+    print_status "Checking for stuck resources that need force cleanup..."
+    
+    # Force delete EventBridge rules with targets first
+    print_status "Force cleaning EventBridge rules..."
+    aws events list-rules --name-prefix blockchain-core --query 'Rules[].Name' --output text | while read -r rule; do
+        if [ -n "$rule" ]; then
+            print_status "Force deleting EventBridge rule: $rule"
+            # Remove targets first
+            aws events list-targets-by-rule --rule "$rule" --query 'Targets[].Id' --output text | while read -r target; do
+                if [ -n "$target" ]; then
+                    print_status "Removing target $target from rule $rule"
+                    aws events remove-targets --rule "$rule" --ids "$target" 2>/dev/null || true
+                fi
+            done
+            # Now delete the rule
+            aws events delete-rule --name "$rule" 2>/dev/null || true
+        fi
+    done
+    
+    # Force delete Lambda functions that might be stuck
+    print_status "Force cleaning Lambda functions..."
+    aws lambda list-functions --query 'Functions[?contains(FunctionName, `blockchain-core`)].FunctionName' --output text | while read -r function; do
+        if [ -n "$function" ]; then
+            print_status "Force deleting Lambda function: $function"
+            # Remove event source mappings first
+            aws lambda list-event-source-mappings --function-name "$function" --query 'EventSourceMappings[].UUID' --output text | while read -r mapping; do
+                if [ -n "$mapping" ]; then
+                    aws lambda delete-event-source-mapping --uuid "$mapping" 2>/dev/null || true
+                fi
+            done
+            # Delete the function
+            aws lambda delete-function --function-name "$function" 2>/dev/null || true
+        fi
+    done
+    
+    # Force delete SQS queues that might be stuck
+    print_status "Force cleaning SQS queues..."
+    aws sqs list-queues --query 'QueueUrls[?contains(@, `blockchain-core`)]' --output text | while read -r queue; do
+        if [ -n "$queue" ]; then
+            print_status "Force deleting SQS queue: $queue"
+            aws sqs delete-queue --queue-url "$queue" 2>/dev/null || true
+        fi
+    done
+    
+    # Force delete S3 buckets that might be stuck
+    print_status "Force cleaning S3 buckets..."
+    aws s3 ls 2>/dev/null | grep blockchain-core | awk '{print $3}' | while read -r bucket; do
+        if [ -n "$bucket" ]; then
+            print_status "Force deleting S3 bucket: $bucket"
+            aws s3 rb "s3://$bucket" --force 2>/dev/null || true
+        fi
+    done
+    
+    print_success "Force cleanup completed"
+}
+
 # Destroy infrastructure with Terraform
 destroy_terraform() {
     print_status "Destroying infrastructure with Terraform..."
     
     cd terraform
     
-    # Plan the destruction
-    print_status "Planning destruction..."
-    terraform plan -destroy -out=tfdestroyplan
+    # Check if there are resources to destroy
+    RESOURCE_COUNT=$(terraform state list 2>/dev/null | wc -l)
+    if [ "$RESOURCE_COUNT" -eq 0 ]; then
+        print_status "No resources in Terraform state to destroy"
+        cd ..
+        return 0
+    fi
     
-    # Apply the destruction
-    print_status "Applying destruction..."
-    terraform apply tfdestroyplan
+    print_status "Found $RESOURCE_COUNT resources to destroy"
     
-    # Clean up plan file
-    rm -f tfdestroyplan
+    # Try terraform destroy with timeout and retry logic
+    MAX_RETRIES=3
+    RETRY_COUNT=0
+    
+    while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+        print_status "Attempt $((RETRY_COUNT + 1)) of $MAX_RETRIES: Running terraform destroy..."
+        
+        # Run terraform destroy with timeout (macOS compatible)
+        if command -v timeout >/dev/null 2>&1; then
+            timeout 300 terraform destroy -auto-approve
+        else
+            # macOS doesn't have timeout, use gtimeout if available, otherwise run without timeout
+            if command -v gtimeout >/dev/null 2>&1; then
+                gtimeout 300 terraform destroy -auto-approve
+            else
+                terraform destroy -auto-approve
+            fi
+        fi
+        
+        EXIT_CODE=$?
+        
+        if [ $EXIT_CODE -eq 0 ]; then
+            print_success "Terraform destroy completed successfully"
+            break
+        elif [ $EXIT_CODE -eq 124 ]; then
+            print_error "Terraform destroy timed out after 5 minutes"
+        else
+            print_error "Terraform destroy failed with exit code $EXIT_CODE"
+        fi
+        
+        RETRY_COUNT=$((RETRY_COUNT + 1))
+        
+        if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+            print_status "Waiting 30 seconds before retry..."
+            sleep 30
+        fi
+    done
+    
+    # If all retries failed, try force cleanup
+    if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+        print_warning "All terraform destroy attempts failed. Attempting force cleanup..."
+        
+        # Remove problematic resources from state first
+        print_status "Removing problematic resources from Terraform state..."
+        terraform state rm aws_cloudwatch_event_rule.anomaly_detection 2>/dev/null || true
+        terraform state rm aws_cloudwatch_event_target.anomaly_detection 2>/dev/null || true
+        terraform state rm aws_lambda_permission.allow_eventbridge 2>/dev/null || true
+        
+        # Try terraform destroy again
+        print_status "Retrying terraform destroy after removing problematic resources..."
+        terraform destroy -auto-approve || true
+        
+        # If still failing, remove all state and try one more time
+        if [ $? -ne 0 ]; then
+            print_warning "Terraform destroy still failing. Removing all state..."
+            rm -f terraform.tfstate terraform.tfstate.backup
+            
+            print_status "Final attempt with fresh state..."
+            terraform destroy -auto-approve || true
+        fi
+    fi
     
     cd ..
     
-    print_success "Infrastructure destroyed"
+    print_success "Infrastructure destruction process completed"
 }
 
 # Clean up local files
@@ -258,16 +398,106 @@ cleanup_local_files() {
 verify_destruction() {
     print_status "Verifying destruction..."
     
-    # Check if Terraform state is empty
+    echo ""
+    echo "🔍 Destruction Verification Report"
+    echo "=================================="
+    
+    # Check Terraform state
+    print_status "Checking Terraform state..."
     if [ -f "terraform/terraform.tfstate" ]; then
         RESOURCE_COUNT=$(cd terraform && terraform state list 2>/dev/null | wc -l)
         if [ "$RESOURCE_COUNT" -eq 0 ]; then
-            print_success "All resources destroyed"
+            print_success "✅ Terraform state: All resources destroyed"
         else
-            print_error "Some resources may still exist"
+            print_error "❌ Terraform state: $RESOURCE_COUNT resources still exist"
+            cd terraform && terraform state list 2>/dev/null || true
+            cd ..
         fi
     else
-        print_success "Terraform state removed"
+        print_success "✅ Terraform state: State file removed"
+    fi
+    
+    # Check for remaining AWS resources
+    print_status "Checking for remaining AWS resources..."
+    
+    # Check DynamoDB tables
+    DYNAMODB_COUNT=$(aws dynamodb list-tables --query 'TableNames[?contains(@, `blockchain-core`)]' --output text 2>/dev/null | wc -w)
+    if [ "$DYNAMODB_COUNT" -eq 0 ]; then
+        print_success "✅ DynamoDB: No blockchain-core tables found"
+    else
+        print_error "❌ DynamoDB: $DYNAMODB_COUNT tables still exist"
+        aws dynamodb list-tables --query 'TableNames[?contains(@, `blockchain-core`)]' --output text 2>/dev/null || true
+    fi
+    
+    # Check Lambda functions
+    LAMBDA_COUNT=$(aws lambda list-functions --query 'Functions[?contains(FunctionName, `blockchain-core`)].FunctionName' --output text 2>/dev/null | wc -w)
+    if [ "$LAMBDA_COUNT" -eq 0 ]; then
+        print_success "✅ Lambda: No blockchain-core functions found"
+    else
+        print_error "❌ Lambda: $LAMBDA_COUNT functions still exist"
+        aws lambda list-functions --query 'Functions[?contains(FunctionName, `blockchain-core`)].FunctionName' --output text 2>/dev/null || true
+    fi
+    
+    # Check SQS queues
+    SQS_COUNT=$(aws sqs list-queues --query 'QueueUrls[?contains(@, `blockchain-core`)]' --output text 2>/dev/null | wc -w)
+    if [ "$SQS_COUNT" -eq 0 ]; then
+        print_success "✅ SQS: No blockchain-core queues found"
+    else
+        print_error "❌ SQS: $SQS_COUNT queues still exist"
+        aws sqs list-queues --query 'QueueUrls[?contains(@, `blockchain-core`)]' --output text 2>/dev/null || true
+    fi
+    
+    # Check S3 buckets
+    S3_COUNT=$(aws s3 ls 2>/dev/null | grep blockchain-core | wc -l)
+    if [ "$S3_COUNT" -eq 0 ]; then
+        print_success "✅ S3: No blockchain-core buckets found"
+    else
+        print_error "❌ S3: $S3_COUNT buckets still exist"
+        aws s3 ls 2>/dev/null | grep blockchain-core || true
+    fi
+    
+    # Check SNS topics
+    SNS_COUNT=$(aws sns list-topics --query 'Topics[?contains(TopicArn, `blockchain-core`)].TopicArn' --output text 2>/dev/null | wc -w)
+    if [ "$SNS_COUNT" -eq 0 ]; then
+        print_success "✅ SNS: No blockchain-core topics found"
+    else
+        print_error "❌ SNS: $SNS_COUNT topics still exist"
+        aws sns list-topics --query 'Topics[?contains(TopicArn, `blockchain-core`)].TopicArn' --output text 2>/dev/null || true
+    fi
+    
+    # Check CloudWatch Event rules
+    EVENT_COUNT=$(aws events list-rules --name-prefix blockchain-core --query 'Rules[].Name' --output text 2>/dev/null | wc -w)
+    if [ "$EVENT_COUNT" -eq 0 ]; then
+        print_success "✅ CloudWatch Events: No blockchain-core rules found"
+    else
+        print_error "❌ CloudWatch Events: $EVENT_COUNT rules still exist"
+        aws events list-rules --name-prefix blockchain-core --query 'Rules[].Name' --output text 2>/dev/null || true
+    fi
+    
+    # Check IAM roles
+    IAM_COUNT=$(aws iam list-roles --query 'Roles[?contains(RoleName, `blockchain-core`)].RoleName' --output text 2>/dev/null | wc -w)
+    if [ "$IAM_COUNT" -eq 0 ]; then
+        print_success "✅ IAM: No blockchain-core roles found"
+    else
+        print_error "❌ IAM: $IAM_COUNT roles still exist"
+        aws iam list-roles --query 'Roles[?contains(RoleName, `blockchain-core`)].RoleName' --output text 2>/dev/null || true
+    fi
+    
+    # Summary
+    echo ""
+    echo "📊 Destruction Summary:"
+    echo "======================"
+    TOTAL_REMAINING=$((DYNAMODB_COUNT + LAMBDA_COUNT + SQS_COUNT + S3_COUNT + SNS_COUNT + EVENT_COUNT + IAM_COUNT))
+    
+    if [ "$TOTAL_REMAINING" -eq 0 ]; then
+        print_success "🎉 SUCCESS: All infrastructure has been completely destroyed!"
+    else
+        print_error "⚠️  WARNING: $TOTAL_REMAINING resources may still exist"
+        echo ""
+        echo "If resources remain, you may need to:"
+        echo "1. Wait a few minutes for AWS to complete deletion"
+        echo "2. Manually delete remaining resources in AWS Console"
+        echo "3. Check for dependencies preventing deletion"
     fi
 }
 
@@ -304,6 +534,10 @@ main() {
     fi
     
     destroy_terraform
+    
+    # Force cleanup any stuck resources after Terraform destroy
+    force_cleanup_stuck_resources
+    
     cleanup_local_files
     verify_destruction
     show_cost_savings
