@@ -17,6 +17,12 @@ import PriceChart from "./PriceChart";
 import MetricsCard from "./MetricsCard";
 import AlertsPanel from "./AlertsPanel";
 import { fetchLatestData, fetchAnomalies } from "../services/api";
+import { 
+  fetchLatestOHLCVData, 
+  fetchAnomalies as fetchAWSAnomalies, 
+  createRealTimeConnection,
+  formatCryptoData 
+} from "../services/aws-api";
 
 interface CryptoData {
   symbol: string;
@@ -43,14 +49,27 @@ const Dashboard: React.FC = () => {
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
   useEffect(() => {
-    const fetchData = async () => {
+    // Initial data fetch
+    const fetchInitialData = async () => {
       try {
-        const [data, anomalyData] = await Promise.all([
-          fetchLatestData(),
-          fetchAnomalies(),
-        ]);
-        setCryptoData(data);
-        setAnomalies(anomalyData);
+        // Try AWS API first, fallback to mock data
+        try {
+          const [ohlcvData, anomalyData] = await Promise.all([
+            fetchLatestOHLCVData(),
+            fetchAWSAnomalies(),
+          ]);
+          const formattedData = formatCryptoData(ohlcvData);
+          setCryptoData(formattedData);
+          setAnomalies(anomalyData);
+        } catch (awsError) {
+          console.log('AWS API not available, using mock data');
+          const [data, anomalyData] = await Promise.all([
+            fetchLatestData(),
+            fetchAnomalies(),
+          ]);
+          setCryptoData(data);
+          setAnomalies(anomalyData);
+        }
         setLastUpdate(new Date());
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -59,10 +78,42 @@ const Dashboard: React.FC = () => {
       }
     };
 
-    fetchData();
-    const interval = setInterval(fetchData, 30000); // Update every 30 seconds
+    fetchInitialData();
 
-    return () => clearInterval(interval);
+    // Set up real-time WebSocket connection
+    const wsConnection = createRealTimeConnection((message) => {
+      if (message.type === 'data_update') {
+        const { ohlcv, anomalies } = message.data;
+        if (ohlcv) {
+          const formattedData = formatCryptoData(ohlcv);
+          setCryptoData(formattedData);
+        }
+        if (anomalies) {
+          setAnomalies(anomalies);
+        }
+        setLastUpdate(new Date());
+      } else if (message.type === 'price_update') {
+        // Handle individual price updates
+        const updatedData = cryptoData.map(crypto => {
+          const update = message.data.find((u: any) => u.symbol === crypto.symbol);
+          if (update) {
+            return { ...crypto, price: update.price, lastUpdated: update.timestamp };
+          }
+          return crypto;
+        });
+        setCryptoData(updatedData);
+        setLastUpdate(new Date());
+      } else if (message.type === 'anomaly_alert') {
+        // Handle new anomaly alerts
+        setAnomalies(prev => [message.data, ...prev.slice(0, 9)]); // Keep latest 10
+        setLastUpdate(new Date());
+      }
+    });
+
+    // Cleanup function
+    return () => {
+      wsConnection.close();
+    };
   }, []);
 
   const handleRefresh = () => {
