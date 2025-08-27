@@ -4,6 +4,7 @@ import os
 from datetime import datetime, timedelta
 from typing import Dict, List, Any
 import logging
+from decimal import Decimal
 
 # Configure logging
 logger = logging.getLogger()
@@ -76,8 +77,7 @@ def get_latest_ohlcv_data(headers: Dict[str, str]) -> Dict[str, Any]:
         
         # Scan for the latest data (in production, you'd use a more efficient query)
         response = table.scan(
-            Limit=100,
-            ScanIndexForward=False  # Get most recent first
+            Limit=100
         )
         
         # Group by symbol and get latest for each
@@ -90,10 +90,21 @@ def get_latest_ohlcv_data(headers: Dict[str, str]) -> Dict[str, Any]:
                 if symbol not in latest_data or timestamp > latest_data[symbol]['timestamp']:
                     latest_data[symbol] = item
         
+        # Convert Decimal objects to float for JSON serialization
+        serializable_data = []
+        for item in latest_data.values():
+            serializable_item = {}
+            for key, value in item.items():
+                if isinstance(value, Decimal):
+                    serializable_item[key] = float(value)
+                else:
+                    serializable_item[key] = value
+            serializable_data.append(serializable_item)
+        
         return {
             'statusCode': 200,
             'headers': headers,
-            'body': json.dumps(list(latest_data.values()))
+            'body': json.dumps(serializable_data)
         }
         
     except Exception as e:

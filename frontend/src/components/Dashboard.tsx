@@ -17,11 +17,11 @@ import PriceChart from "./PriceChart";
 import MetricsCard from "./MetricsCard";
 import AlertsPanel from "./AlertsPanel";
 import { fetchLatestData, fetchAnomalies } from "../services/api";
-import { 
-  fetchLatestOHLCVData, 
-  fetchAnomalies as fetchAWSAnomalies, 
+import {
+  fetchLatestOHLCVData,
+  fetchAnomalies as fetchAWSAnomalies,
   createRealTimeConnection,
-  formatCryptoData 
+  formatCryptoData,
 } from "../services/aws-api";
 
 interface CryptoData {
@@ -62,7 +62,7 @@ const Dashboard: React.FC = () => {
           setCryptoData(formattedData);
           setAnomalies(anomalyData);
         } catch (awsError) {
-          console.log('AWS API not available, using mock data');
+          console.log("AWS API not available, using mock data");
           const [data, anomalyData] = await Promise.all([
             fetchLatestData(),
             fetchAnomalies(),
@@ -82,7 +82,7 @@ const Dashboard: React.FC = () => {
 
     // Set up real-time WebSocket connection
     const wsConnection = createRealTimeConnection((message) => {
-      if (message.type === 'data_update') {
+      if (message.type === "data_update") {
         const { ohlcv, anomalies } = message.data;
         if (ohlcv) {
           const formattedData = formatCryptoData(ohlcv);
@@ -92,20 +92,26 @@ const Dashboard: React.FC = () => {
           setAnomalies(anomalies);
         }
         setLastUpdate(new Date());
-      } else if (message.type === 'price_update') {
+      } else if (message.type === "price_update") {
         // Handle individual price updates
-        const updatedData = cryptoData.map(crypto => {
-          const update = message.data.find((u: any) => u.symbol === crypto.symbol);
+        const updatedData = cryptoData.map((crypto) => {
+          const update = message.data.find(
+            (u: any) => u.symbol === crypto.symbol
+          );
           if (update) {
-            return { ...crypto, price: update.price, lastUpdated: update.timestamp };
+            return {
+              ...crypto,
+              price: update.price,
+              lastUpdated: update.timestamp,
+            };
           }
           return crypto;
         });
         setCryptoData(updatedData);
         setLastUpdate(new Date());
-      } else if (message.type === 'anomaly_alert') {
+      } else if (message.type === "anomaly_alert") {
         // Handle new anomaly alerts
-        setAnomalies(prev => [message.data, ...prev.slice(0, 9)]); // Keep latest 10
+        setAnomalies((prev) => [message.data, ...prev.slice(0, 9)]); // Keep latest 10
         setLastUpdate(new Date());
       }
     });
