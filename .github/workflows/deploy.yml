@@ -314,17 +314,17 @@ jobs:
             --function-name blockchain-core-anomaly-detector \
             --zip-file fileb://src/lambda/anomaly/anomaly.zip
 
-  notify:
-    needs: [deploy-infrastructure, deploy-lambda]
-    runs-on: ubuntu-latest
-    if: always() && github.ref == 'refs/heads/main'
+  # notify:
+  #   needs: [deploy-infrastructure, deploy-lambda]
+  #   runs-on: ubuntu-latest
+  #   if: always() && github.ref == 'refs/heads/main'
 
-    steps:
-      - name: Notify deployment status
-        uses: 8398a7/action-slack@v3
-        with:
-          status: ${{ job.status }}
-          channel: "#deployments"
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        if: always()
+  #   steps:
+  #     - name: Notify deployment status
+  #       uses: 8398a7/action-slack@v3
+  #       with:
+  #         status: ${{ job.status }}
+  #         channel: "#deployments"
+  #       env:
+  #         SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+  #       if: always()
