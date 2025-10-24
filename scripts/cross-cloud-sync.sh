@@ -201,10 +201,58 @@ check_status() {
     fi
 }
 
+# --- Failover Functions ---
+
+start_with_failover() {
+    print_status "Starting Multi-Cloud Architecture with Auto-Failover..."
+    print_status "====================================================="
+    
+    # Start health monitor in background
+    print_status "Starting health monitor..."
+    nohup ./scripts/health-monitor.sh start > logs/health_monitor.log 2>&1 &
+    HEALTH_PID=$!
+    echo "$HEALTH_PID" > .health_monitor_pid
+    print_success "Health monitor started with PID: $HEALTH_PID"
+    
+    # Start primary cloud (AWS)
+    print_status "Starting primary cloud (AWS)..."
+    if [ -f "$AWS_PRODUCER_SCRIPT" ]; then
+        nohup "$AWS_PRODUCER_SCRIPT" > logs/aws_producer.log 2>&1 &
+        AWS_PID=$!
+        echo "$AWS_PID" > .aws_producer_pid
+        print_success "AWS Producer started with PID: $AWS_PID"
+    else
+        print_error "AWS Producer script not found!"
+        exit 1
+    fi
+    
+    print_success "Multi-Cloud Architecture with Auto-Failover started!"
+    print_status "Health monitoring is active - automatic failover enabled."
+    print_status "If AWS fails, GCP will automatically take over."
+}
+
+trigger_failover() {
+    local target_cloud="$1"
+    
+    if [ "$target_cloud" = "gcp" ]; then
+        print_status "Triggering failover to GCP..."
+        ./scripts/health-monitor.sh failover-gcp
+    elif [ "$target_cloud" = "aws" ]; then
+        print_status "Triggering failover to AWS..."
+        ./scripts/health-monitor.sh failover-aws
+    else
+        print_error "Invalid target cloud: $target_cloud"
+        exit 1
+    fi
+}
+
 # --- Main Script Logic ---
 case "$1" in
     start)
         start_all_producers
+        ;;
+    start-failover)
+        start_with_failover
         ;;
     stop)
         stop_all_producers
@@ -215,14 +263,27 @@ case "$1" in
     status)
         check_status
         ;;
+    failover-gcp)
+        trigger_failover "gcp"
+        ;;
+    failover-aws)
+        trigger_failover "aws"
+        ;;
+    health-status)
+        ./scripts/health-monitor.sh status
+        ;;
     *)
-        print_error "Usage: $0 {start|stop|monitor|status}"
+        print_error "Usage: $0 {start|start-failover|stop|monitor|status|failover-gcp|failover-aws|health-status}"
         echo ""
         echo "Commands:"
-        echo "  start   - Start both AWS and GCP producers"
-        echo "  stop    - Stop both AWS and GCP producers"
-        echo "  monitor - Monitor logs from both producers"
-        echo "  status  - Check status of both producers"
+        echo "  start           - Start both AWS and GCP producers"
+        echo "  start-failover  - Start with auto-failover monitoring"
+        echo "  stop            - Stop both AWS and GCP producers"
+        echo "  monitor         - Monitor logs from both producers"
+        echo "  status          - Check status of both producers"
+        echo "  failover-gcp    - Manual failover to GCP"
+        echo "  failover-aws    - Manual failover to AWS"
+        echo "  health-status   - Show health monitor status"
         exit 1
         ;;
 esac

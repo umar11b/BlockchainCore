@@ -1,0 +1,29 @@
+# BlockchainCore Auto-Failover Configuration
+
+# Health Check Settings
+health_check:
+  interval: 30  # seconds
+  timeout: 10                        # seconds
+  max_failures: 3      # consecutive failures before failover
+
+# Cloud Priority (which cloud to use first)
+cloud_priority:
+  primary: "aws"
+  secondary: "gcp"
+
+# Notification Settings
+notifications:
+  enabled: true
+  log_file: "logs/failover.log"
+  # Add Slack, email, etc. here if needed
+
+# Monitoring Settings
+monitoring:
+  aws_services:
+    - "sqs"
+    - "lambda"
+    - "dynamodb"
+  gcp_services:
+    - "pubsub"
+    - "cloudfunctions"
+    - "firestore"
