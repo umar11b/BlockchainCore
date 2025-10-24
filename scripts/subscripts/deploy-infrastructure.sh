@@ -54,7 +54,7 @@ check_terraform() {
 init_terraform() {
     print_status "Initializing Terraform..."
     
-    cd terraform
+    cd terraform-aws
     
     if ! terraform init; then
         print_error "Terraform initialization failed!"
@@ -70,7 +70,7 @@ init_terraform() {
 deploy_infrastructure() {
     print_status "Deploying infrastructure..."
     
-    cd terraform
+    cd terraform-aws
     
     # Plan the deployment
     print_status "Planning deployment..."
@@ -98,7 +98,7 @@ deploy_infrastructure() {
 get_outputs() {
     print_status "Getting deployment outputs..."
     
-    cd terraform
+    cd terraform-aws
     
     # Get environment variables
     echo ""
@@ -123,7 +123,7 @@ get_outputs() {
 create_env_file() {
     print_status "Creating .env file for producer..."
     
-    cd terraform
+    cd terraform-aws
     
     # Create .env file with environment variables (with export keywords)
     terraform output -json environment_variables | jq -r 'to_entries[] | "export \(.key)=\(.value)"' > ../.env

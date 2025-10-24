@@ -7,7 +7,7 @@ echo "📊 Populating DynamoDB with sample data..."
 
 # Get AWS region and DynamoDB table name
 REGION=$(aws configure get region)
-cd terraform
+cd terraform-aws
 TABLE_NAME=$(terraform output -raw dynamodb_table_name)
 cd ..
 

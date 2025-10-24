@@ -218,18 +218,35 @@ src/lambda/*/dist/
 *.tfstate.*
 .terraform/
 .terraform.lock.hcl
-terraform/tfplan
-terraform/*.tfplan
+terraform-aws/tfplan
+terraform-aws/*.tfplan
+terraform-gcp/tfplan
+terraform-gcp/*.tfplan
 
 # AWS credentials and config
 .aws/
 aws-credentials.json
+
+# GCP credentials and config
+.gcloud/
+gcp-credentials.json
+service-account-*.json
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!mypy.ini
+!versions.json
 
 # Local development logs
 producer.log
 *.log
 response.json
 anomaly-response.json
+logs/
+*.pid
+.aws_producer_pid
+.gcp_producer_pid
 
 # Test artifacts
 test_*.py
@@ -264,6 +281,10 @@ coverage.xml
 .env
 .env.local
 .env.*.local
+.env.gcp
+.env.aws
+.env.production
+.env.staging
 
 # IDE and editor files
 .vscode/
@@ -280,3 +301,99 @@ coverage.xml
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Multi-cloud specific files
+# Cloud function deployment packages
+src/lambda/*/processor.zip
+src/lambda/*/anomaly.zip
+src/lambda/*/build/
+src/lambda/*/dist/
+
+# Cloud provider specific files
+# AWS
+.aws/
+aws-credentials.json
+aws-config.json
+
+# GCP
+.gcloud/
+gcp-credentials.json
+service-account-*.json
+gcp-config.json
+
+# Azure (for future use)
+.azure/
+azure-credentials.json
+azure-config.json
+
+# Docker and containerization
+Dockerfile.local
+docker-compose.override.yml
+.dockerignore
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Lock files for package managers
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Frontend build artifacts
+frontend/build/
+frontend/dist/
+frontend/.next/
+frontend/out/
+
+# IDE and editor specific
+.vscode/settings.json
+.vscode/launch.json
+.vscode/extensions.json
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/dictionaries/
+.idea/shelf/
+
+# JetBrains IDEs
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# Local configuration overrides
+config/local.yaml
+config/local.json
+config/local.yml

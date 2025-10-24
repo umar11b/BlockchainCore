@@ -58,7 +58,7 @@ check_terraform() {
 check_infrastructure() {
     print_status "Checking if infrastructure exists..."
     
-    if [ ! -d "terraform" ] || [ ! -f "terraform/.terraform.lock.hcl" ]; then
+    if [ ! -d "terraform-aws" ] || [ ! -f "terraform-aws/.terraform.lock.hcl" ]; then
         print_error "Infrastructure not found!"
         echo "No Terraform state found. Infrastructure may already be destroyed."
         exit 1
@@ -307,7 +307,7 @@ force_cleanup_stuck_resources() {
 destroy_terraform() {
     print_status "Destroying infrastructure with Terraform..."
     
-    cd terraform
+    cd terraform-aws
     
     # Check if there are resources to destroy
     RESOURCE_COUNT=$(terraform state list 2>/dev/null | wc -l)
@@ -413,13 +413,13 @@ verify_destruction() {
     
     # Check Terraform state
     print_status "Checking Terraform state..."
-    if [ -f "terraform/terraform.tfstate" ]; then
-        RESOURCE_COUNT=$(cd terraform && terraform state list 2>/dev/null | wc -l)
+    if [ -f "terraform-aws/terraform.tfstate" ]; then
+        RESOURCE_COUNT=$(cd terraform-aws && terraform state list 2>/dev/null | wc -l)
         if [ "$RESOURCE_COUNT" -eq 0 ]; then
             print_success "✅ Terraform state: All resources destroyed"
         else
             print_error "❌ Terraform state: $RESOURCE_COUNT resources still exist"
-            cd terraform && terraform state list 2>/dev/null || true
+            cd terraform-aws && terraform state list 2>/dev/null || true
             cd ..
         fi
     else
