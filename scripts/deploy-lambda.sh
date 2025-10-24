@@ -54,11 +54,36 @@ deploy_lambda() {
     zip -r "$zip_file" .
     cd "$PROJECT_DIR"
     
-    # Deploy to AWS Lambda
+    # Deploy to AWS Lambda with timeout
     print_status "Uploading $function_name to AWS Lambda..."
-    aws lambda update-function-code \
-        --function-name "$function_name" \
-        --zip-file "fileb://$source_dir/build/$zip_file"
+    
+    # Check if function exists first
+    if ! aws lambda get-function --function-name "$function_name" &>/dev/null; then
+        print_error "Lambda function $function_name does not exist!"
+        print_status "Please run terraform apply first to create the infrastructure."
+        return 1
+    fi
+    
+    # Deploy with timeout (macOS compatible)
+    if command -v timeout >/dev/null 2>&1; then
+        timeout 300 aws lambda update-function-code \
+            --function-name "$function_name" \
+            --zip-file "fileb://$source_dir/build/$zip_file" || {
+            print_error "Lambda deployment timed out for $function_name"
+            print_status "This might be due to network issues or AWS service problems."
+            print_status "You can try running the script again."
+            return 1
+        }
+    else
+        # macOS fallback - run without timeout but with better error handling
+        aws lambda update-function-code \
+            --function-name "$function_name" \
+            --zip-file "fileb://$source_dir/build/$zip_file" || {
+            print_error "Lambda deployment failed for $function_name"
+            print_status "Check AWS CLI configuration and network connectivity."
+            return 1
+        }
+    fi
     
     print_status "$function_name deployed successfully!"
 }

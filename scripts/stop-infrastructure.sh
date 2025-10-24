@@ -40,6 +40,7 @@ confirm_destruction() {
     echo "Options:"
     echo "  'yes'     - Full cleanup (including S3 bucket)"
     echo "  'fast'    - Quick shutdown (skip S3 cleanup)"
+    echo "  'force'   - Force destroy (skip confirmation, full cleanup)"
     echo "  'cancel'  - Cancel operation"
     echo ""
     read -p "Choose option: " confirm
@@ -50,6 +51,9 @@ confirm_destruction() {
     elif [ "$confirm" = "fast" ]; then
         export SKIP_S3_CLEANUP=true
         print_status "Fast shutdown selected - S3 cleanup will be skipped"
+    elif [ "$confirm" = "force" ]; then
+        print_status "Force destroy selected - full cleanup with no confirmation"
+        # No SKIP_S3_CLEANUP export, so S3 cleanup will run
     elif [ "$confirm" != "yes" ]; then
         print_status "Destruction cancelled by user"
         exit 0

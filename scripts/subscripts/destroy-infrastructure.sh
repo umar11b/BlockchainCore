@@ -215,10 +215,19 @@ cleanup_orphaned_resources() {
         fi
     done
     
-    # Clean up CloudWatch Event rules
+    # Clean up CloudWatch Event rules (remove targets first)
     print_status "Checking for orphaned CloudWatch Event rules..."
     aws events list-rules --name-prefix blockchain-core --query 'Rules[].Name' --output text | while read -r rule; do
         if [ -n "$rule" ]; then
+            print_status "Cleaning up EventBridge rule: $rule"
+            # Remove targets first
+            aws events list-targets-by-rule --rule "$rule" --query 'Targets[].Id' --output text | while read -r target; do
+                if [ -n "$target" ]; then
+                    print_status "Removing target $target from rule $rule"
+                    aws events remove-targets --rule "$rule" --ids "$target" 2>/dev/null || true
+                fi
+            done
+            # Now delete the rule
             print_status "Deleting orphaned CloudWatch Event rule: $rule"
             aws events delete-rule --name "$rule" 2>/dev/null || true
         fi

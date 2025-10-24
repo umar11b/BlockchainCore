@@ -96,8 +96,14 @@ check_dependencies() {
     # Check if required packages are installed
     required_packages=("boto3" "websockets")
     
+    # Check if virtual environment exists
+    if [ -d "venv" ]; then
+        print_status "Using virtual environment..."
+        source venv/bin/activate
+    fi
+    
     for package in "${required_packages[@]}"; do
-        if ! python -c "import $package" &>/dev/null; then
+        if ! python3 -c "import $package" &>/dev/null; then
             print_error "Python package '$package' not found!"
             echo "Please install dependencies: pip install -r requirements.txt"
             exit 1
@@ -130,8 +136,11 @@ start_producer() {
     echo "Press Ctrl+C to stop the producer"
     echo ""
     
-    # Start the producer
-    python src/producer/main.py 2>&1 | tee logs/producer.log
+    # Start the producer (with virtual environment if available)
+    if [ -d "venv" ]; then
+        source venv/bin/activate
+    fi
+    python3 src/producer/main.py 2>&1 | tee logs/producer.log
 }
 
 # Main execution
